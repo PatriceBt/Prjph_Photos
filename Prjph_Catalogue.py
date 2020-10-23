@@ -202,7 +202,7 @@
 # https://www.reneelab.fr/extension-video.html
 # 
 
-# In[ ]:
+# In[1]:
 
 
 #imports
@@ -213,7 +213,7 @@ from os.path import isfile, join, isdir
 
 from PIL import Image, IptcImagePlugin
 import numpy as np
-from matplotlib import pyplot as plt #je ne sais plus pourquoi
+from matplotlib import pyplot as plt # pour imgshow
 
 import pandas as pd
 
@@ -242,7 +242,7 @@ import sys
 
 # ## Création des fonctions de lecture du catalogue et d'insertion dans la base
 
-# In[ ]:
+# In[2]:
 
 
 def fnph_getexif(parm_monfichier):
@@ -265,9 +265,6 @@ def fnph_getexif(parm_monfichier):
         bool_dict_exif_ok=False
         msg_err = "Problème ouverture PIL.Image.open"
         
-    #print('debug-->parm_monfichier=', parm_monfichier)
-    #print('debug-->type(img)=',type(img))
-    
     #données exif
     if bool_img_ok:
         try:
@@ -276,28 +273,19 @@ def fnph_getexif(parm_monfichier):
             bool_dict_exif_ok=False
             msg_err = "Données exif non récupérées - problème de format de fichier (gif par exemple) ?"
         
-    #debug
-    #print('debug-->', [(k,type(v),len(str(v))) for k,v in dict_exif.items()])
-   
     if bool_dict_exif_ok:
         #initialisation de la liste des données à supprimer (pas directement sinon pbl de taille de dico qui varie...)
         listpop=[]
         try:
-            debug_cpt=0
             for k,v in dict_exif.items():
-                debug_cpt+=1
-                #print('debug-->gestion des données exif - ', debug_cpt)
-                #print('debug-->test format de v pour k,v =', k, type(v))
                 #conversion du type PIL.TiffImagePlugin.IFDRational en string avec ajout du liellé IFDRational
                 if type(v)==PIL.TiffImagePlugin.IFDRational:
                     dict_exif[k]='IFDRational '+str(v)
-                    #print('debug-->ifdrational', k, v)
                 #et gestion de 42034 (valeur de type tuple avec données Tiff, transformée en string)
                 if k == 42034: #éventuellement à remplacer par un test sur type tuple s'il y en a d'autres
                     dict_exif[k]=str(v)
                 #je retire les données bytes de plus de 12 de long
                 if type(v) == bytes and len(str(v)) > 12:
-                    #print('debug-->bytes trop longs :', k, 'supprimée')
                     listpop.append(k)
 
             #Suppression des données 
@@ -305,7 +293,6 @@ def fnph_getexif(parm_monfichier):
                 dict_exif.pop(listpop[i])
 
         except:
-            #print('debug-->except on k, v=',k, v)
             mytrue=True
 
         #suppression des clés de type dictionnaire
@@ -340,7 +327,7 @@ def fnph_getexif(parm_monfichier):
     return dict_exif
 
 
-# In[ ]:
+# In[3]:
 
 
 #test de la fonction fnph_getexif
@@ -361,7 +348,7 @@ len(test)
         
 
 
-# In[ ]:
+# In[4]:
 
 
 def fnph_getiptc(parm_dir, parm_file):
@@ -399,7 +386,7 @@ def fnph_getiptc(parm_dir, parm_file):
     #print(get_caption())
 
 
-# In[ ]:
+# In[5]:
 
 
 #Test fnph_getiptc
@@ -410,7 +397,7 @@ parm_file='Capturenb.JPG'
 fnph_getiptc(parm_dir, parm_file)
 
 
-# In[ ]:
+# In[6]:
 
 
 def fnph_getstats_file(parm_mondir, parm_monfichier):
@@ -465,59 +452,123 @@ def fnph_getstats_file(parm_mondir, parm_monfichier):
     return mydicoresult
 
 
-# In[ ]:
+# In[7]:
 
 
-def fnph_listDirectory(parm_directory, parm_fileExtDico, parm_db):                                        
-    """ get list of file info objects for files of particular extensions (sans sensibilité à la casse)
-        
-        Cette fonction recherche la liste des fichiers du répertoire parm_directory
-        puis recherche les metadonnées des fichiers du répertoire parm_directory
-        
-        parm_db est utilisé pour préparer le stockage de l'image par la fonction fnph_getimage
-        
-        parm_fileExtDico est la liste des extensions sous forme de dictionnaire {extension, libellé type de fichier}
-        Cela permet d'indiquer le type de fichier en clair dans doctype
-        Le dico est traduit en liste ensuite ici
-        C'est la liste qui est transmise aux fonctions appelées ici (elles n'ont pas besoin du label)
-
-        Elle retourne une liste de dictionnaire des données à insérer - un item par fichier
-    """
+def fnph_copy_file(parm_filename, parm_sourcename, parm_destname):
     
+    """
+    Fonction de copie de fichier
+    retourne un code status et un commentaire
+    """
+    myfile_source_name         = os.path.join(parm_sourcename, parm_filename)
+    myfile_destination_name    = os.path.join(parm_destname,   parm_filename)
+
+    
+    if os.path.exists(myfile_destination_name): #ajout du test car shutil semble ne pas recopier (dcreation inchangée) 
+                                                #mais ne renvoie pas d'erreur
+        status = "ko"
+        comment = "Existe déjà dans le répertoire " + myfile_destination_name
+        
+    else:
+    
+        try: 
+            myfile_destination_created = shutil.copy2(myfile_source_name, myfile_destination_name) 
+            status="ok"
+            comment="File copied successfully."
+            print("File copied successfully.") 
+            print('done - file', myfile_destination_created, 'created.')
+
+
+        # If source and destination are same 
+        except shutil.SameFileError: 
+            status="ko"
+            comment="Source and destination represents the same file."
+            print("\nSource and destination represents the same file.")
+            print("------")
+            print("myfile_source_name:")
+            print(myfile_source_name)
+            print("myfile_destination_name:")
+            print(myfile_destination_name)
+            print("------")
+
+        # If there is any permission issue 
+        except PermissionError: 
+            status="ko"
+            comment="Impossible to write. Permission denied."
+            print("Permission denied.") 
+
+        # For other errors 
+        except: 
+            status="ko"
+            comment="Error occurred while copying file."
+            print("Error occurred while copying file.") 
+
+    return[status,comment]
+
+
+# In[8]:
+
+
+#test def fnph_copy_file
+import shutil
+import os
+parm_fname="Captureph123.PNG"
+parm_sourcename=r"C:\Users\LENOVO\Documents\Projets\Prj_photos\Prjph_repertoire_test\test_shutil"
+parm_destname=r"C:\Users\LENOVO\Documents\Projets\Prj_photos\Prjph_repertoire_test\test_shutil\copies"
+
+#print(fnph_copy_file(parm_fname, parm_sourcename, parm_destname))
+
+
+# In[9]:
+
+
+def fnph_listDirectory_metadata_copy(parm_directory_name, parm_fileExtDico, parm_db, 
+                                     parm_do_copy=False, parm_do_copy_dest_dir_name=""):                                        
+    """ 
+        Fonction de recherche la liste des fichiers du répertoire parm_directory_name
+        
+        Pour chaque fichier :
+        - vérifie s'il est déjà présent ou non dans la base
+        - s'il n'est pas présent dans la base : 
+             recherche les metadonnées 
+        - copie si souhaitée (présente ou non en base - un event 'copy' indiquera en base le statut de la copie)
+        
+        Remarques : 
+        
+        - parm_db est utilisé pour préparer le stockage de l'image par la fonction fnph_getimage
+        - parm_fileExtDico est la liste des extensions sous forme de dictionnaire {extension, libellé type de fichier}
+          Ce paramètre permet d'indiquer le type de fichier en clair dans doctype
+          Le dico est traduit en liste ensuite ici
+          C'est la liste qui est transmise aux fonctions appelées ici (elles n'ont pas besoin du label)
+
+        Retour : la fonction retourne une liste de dictionnaire des données à insérer - un item par fichier
+                 - avec un indicateur "already_exist_in_db" True/False si le fichier existe ou non dans la base
+    """
     #Traitement du dico des types
     #Création de la liste des types
     fileExtList = [ ext for ext,label in parm_fileExtDico.items()]
-    #print('debug-->parm_fileExtDico=',parm_fileExtDico)
-    #print('debug-->fileExtList='     ,fileExtList)
-    #print('debug-->fonction..<fnph_listDirectory>..............', str(datetime.now()))
+
     #pour la date 
     dnow = datetime.now()
     strtimestamp = str(datetime.timestamp(dnow)).replace('.','_')
-    #fieldname = 'event_'+str(strtimestamp)
     fieldname = 'event_'+global_unique_id.replace('.','_') #on met un identifiant unique pour tous les fichiers du même traitement
    
     #initialisations avant la boucle sur les fichiers du répertoire
     nb_files=0
     listdata=[]
     display1_ok=False
-    #print('debug-->début boucle sur les fichiers de os.listdir(parm_directory)', str(datetime.now()))
-    #-------
-    #print('Rép:', parm_directory)
+    #------- pour l'affichage ------------------------------------d
     fnph_incremente_GLOBAL_NUM_FLDR()
     prct=GLOBAL_NUM_FLDR/(monRepertoire_totalnb_fldrs+1) #+1 pour compter le répertoire racine également traité
     percentage = "{:.0%}".format(prct) 
-    #print('{}/{}-Rép: {}[{}]'.format(GLOBAL_NUM_FLDR,monRepertoire_totalnb_fldrs+1,parm_directory,percentage))
-    print('{}/{}[{}]Rép:{}'.format(GLOBAL_NUM_FLDR,monRepertoire_totalnb_fldrs+1,percentage,parm_directory))
-    #-------
+    print('{}/{}[{}]Rép:{}'.format(GLOBAL_NUM_FLDR,monRepertoire_totalnb_fldrs+1,percentage,parm_directory_name))
+    #------- pour l'affichage ------------------------------------f
     
-    #lenlistfile=len(os.listdir(parm_directory)) #pour print uniquement
     #création de la liste des fichiers du répertoire (pour extraction des métadonnées et svg dans bd)
-    mylistfile = [myfile for myfile in os.scandir(parm_directory) if myfile.is_file()]
+    mylistfile = [myfile for myfile in os.scandir(parm_directory_name) if myfile.is_file()]
     lenlistfile=len(mylistfile)                  #pour print uniquement
     cpt=0                                        #pour print uniquement
-    #Boucle sur les fichiers du répertoire parm_directory
-    #for f in os.listdir(parm_directory):
-    #...remplacé par...
 
     #------------------------------------------------------------------
     #Boucle sur les fichiers de la liste pour recherche des metadonnées
@@ -525,86 +576,132 @@ def fnph_listDirectory(parm_directory, parm_fileExtDico, parm_db):
     #------------------------------------------------------------------
     for f in mylistfile: #ATTENTION : LES ELEMENTS DE mylistfile SONT DES NT.ENTRIES (pas des strings)
         cpt+=1
-        #print('debug-->dans la boucle, pour f=', f, str(datetime.now()))
-        fileDict={}
+        fileDict={"data":{},"already_exist_in_db":True} #le dictionnaire qui va contenir les metadonnées du fichier
         f_name=f.name
         f_ext ="."+f_name.split('.')[1].lower()
         #if (str(os.path.splitext(f)[1])).lower() in fileExtList:    #ajout de .lower() pour être insensible à la casse
         if f_ext in fileExtList:    #ajout de .lower() pour être insensible à la casse
-           #pour affichage sysout ------------
+            #pour affichage sysout ------------d
             #--pourcentage
             prct=cpt/lenlistfile
             percentage = "{:.2%}".format(prct)
             #--la durée restante :
             nb_totalfiles_treated = fnph_incremente_GLOBAL_NBTOTFILES_TREATED()
-            duree_restante        = fnph_duree_restante(start_time, 
-                                                        datetime.now(), 
-                                                        nb_totalfiles_treated, 
+            duree_restante        = fnph_duree_restante(start_time, datetime.now(), nb_totalfiles_treated, 
                                                         monRepertoire_totalnb_files) #nombre surestimé puisque tous types confondus
-
-            #pour chaque fichier,
- 
-            #----
-            #--Affichage sur la même ligne
             msgtodisplay1="   <lus/inRep:"+ str(cpt) + "/" + str(lenlistfile) + ") " +                           "[" + percentage + "] " +                           "... Mdata: " + f_name + " ---" +                           " (cumul:"+ str(nb_totalfiles_treated) +"/"+ str(monRepertoire_totalnb_files) + ")"+                           "timeleft:" + str(duree_restante).split('.')[0] + ">"
             sys.stdout.write("\r" + msgtodisplay1)
             sys.stdout.flush()
             display1_ok=True #pour gestion de l'affichage
-            #print(msgtodisplay1)
-            
-            #pour affichage sysout ------------
+            #pour affichage sysout ------------f
             #----
-            #si son extension fait partie de celles retenues dans parm_fileExtDico (via fileExiList) - go dico
-    
-            #catégorie de fichier (image, vidéo)
-            #var_catfile=parm_fileExtDico[os.path.splitext(f)[1].lower()]
+
             var_catfile=parm_fileExtDico[f_ext.lower()]
-            fileDict['doctype']=var_catfile  #récupération dans le dico du label du type
+            fileDict["data"]['doctype']=var_catfile  #récupération dans le dico du label du type
             #chemin d'origine
-            fileDict['orgnl_dirname']=parm_directory, 
+            fileDict["data"]['orgnl_dirname']=parm_directory_name, 
             #nom du fichier complet original
             #fileDict['filename']=f
-            fileDict['filename']=f.name            #suite à l'utilisation de scandir
+            fileDict["data"]['filename']=f.name            #suite à l'utilisation de scandir
             #extension du fichier (en lower case)
             #fileDict['extfile']=os.path.splitext(f)[1].lower()
-            fileDict['extfile']=f_ext
-            #stats du fichier
-            fileDict['stats']=fnph_getstats_file(parm_directory,f)  #récupération de stats : 
-                                                         #mode, ino, dev, nling, uid, gid, size, atime, mtime, ctime) 
-            #Metadonnées (images et vidéos)
-            if var_catfile=='image':  #à voir comment généraliser (pour éviter la valorisation en dur)
-            #si image
-                #exif (si image) 
-                #fileDict['exif'] =fnph_getexif(os.path.join(parm_directory,f))      #récupération des métadonnées exif
-                fileDict['exif'] =fnph_getexif(os.path.join(parm_directory,f.name))  #récupération des métadonnées exif
-                #l'image elle même (réduite?) si image (rendu inactif pour l'instant - ralentit pas mal)
-               #fileDict['image']=fnph_getimage(parm_directory,f, parm_db)      #récup des métadonnées pour stockage de l'image (nécessite la bd)
-            if var_catfile=='video':  #à voir comment généraliser (pour éviter la valorisation en dur)
-            #si vidéo
-                fileDict['vid_ppty']=fnph_get_video_properties(os.path.join(parm_directory,f))
-            
-            #pour tous les types d'images : recherche des données iptc - annulé pour l'instant (ne fonctionne pas)
-           #fileDict['iptc']=fnph_getiptc(parm_directory,f)      #récup des données iptc (si existent) (inactif pour l'instant - ralentit)
-            
-            #events
-            fileDict['events']={fieldname:{'edate':str(dnow),
-                                           'ename':'insert' ,
-                                           'estatus':'ok'   }}
+            fileDict["data"]['extfile']=f_ext
+
+            #Recherche des metadonnées
+            if not fnph_alreadyexists_in_db(parm_directory_name, f.name):
+                #Test de présence dans la base
+                #catégorie de fichier (image, vidéo)
+                #stats du fichier
+
+                fileDict["data"]['stats']=fnph_getstats_file(parm_directory_name,f)  #récupération de stats : 
+                                                             #mode, ino, dev, nling, uid, gid, size, atime, mtime, ctime) 
+                #Metadonnées (images et vidéos)
+                #exif
+                if var_catfile=='image':  #à voir comment généraliser (pour éviter la valorisation en dur)
+
+                    #si image (VOIR SI NECESSAIRE DE TESTER LE TYPE DE FICHIER POUR LES METATDATA EXIF - NOTMT FICHIERS .MOV)
+                    fileDict["data"]['exif'] =fnph_getexif(os.path.join(parm_directory_name,f.name))  #récupération des métadonnées exif
+                    #l'image elle même (réduite?) si image (rendu inactif pour l'instant - ralentit pas mal)
+                   #fileDict['image']=fnph_getimage(parm_directory_name,f, parm_db)      #récup des métadonnées pour stockage de l'image (nécessite la bd)
+
+                #video metadata
+                if var_catfile=='video':  #à voir comment généraliser (pour éviter la valorisation en dur)
+                    fileDict["data"]['vid_ppty']=fnph_get_video_properties(os.path.join(parm_directory_name,f))
+
+                #iptc
+                #pour tous les types d'images : recherche des données iptc - annulé pour l'instant (ne fonctionne pas)
+                #fileDict['data']['iptc']=fnph_getiptc(parm_directory_name,f)      #récup des données iptc (si existent) (inactif pour l'instant - ralentit)
+
+                #events
+                fileDict['data']['events']={fieldname:{'edate':str(dnow),
+                                               'ename':'insert' ,
+                                               'estatus':'ok'   }}
+
+                #indication de l'existence ou non du fichier dans la bd
+                fileDict['already_exist_in_db']=False
+
         
-            #Append dans la liste
+                #initialisation de l'item copy_events
+                fileDict['data']['copy_events'] = [{"event_init":"initialisation copy_events "+ str(datetime.now())}]
+
+                
+            else:
+                #indication de l'existence ou non du fichier dans la bd
+                fileDict['already_exist_in_db']=True
+
+                #initialisation de l'item copy_events
+                fileDict['data']['copy_events']=[]
+                
+                
+                
+            #copie--------------------------------------------------------------------------
+            copy_event_to_add              = {}           #dictionnaire à ajouter à l'item copy_events
+            copy_event_to_add["copy_id"  ] = global_unique_id.replace('.','_')
+            copy_event_to_add["copy_date"] = str(datetime.now())
+
+            if parm_do_copy: #copie effectuée si demandée (que le fichier existe ou non dans la base)
+
+                #---------------------------------------------------------------
+                copy_status_comment = fnph_copy_file(f.name, parm_directory_name, parm_do_copy_dest_dir_name)
+                #---------------------------------------------------------------
+                copy_event_to_add["copy_source" ] = os.path.join(parm_directory_name        , f.name)
+                copy_event_to_add["copy_dest"   ] = os.path.join(parm_do_copy_dest_dir_name , f.name)
+                copy_event_to_add["copy_status" ] = copy_status_comment[0]
+                copy_event_to_add["copy_comment"] = copy_status_comment[1]
+
+            else:
+                copy_event_to_add["status"]="na"
+                copy_event_to_add["copy_comment"] = "copy not asked"
+                
+            fileDict['data']['copy_events'].append(copy_event_to_add)    
+            #Append des données du fichier dans la liste
             listdata.append(fileDict)
             nb_files+=1
-            #print('debug-->fin boucle sur f=', f, str(datetime.now()))
 
-    #print('debug-->sortie boucle sur les fichiers de os.listdir(parm_directory)', str(datetime.now()))
+            
     #Affichage du nombre de fichiers trouvés
-    #print("debug-->recherche des fichier de type ", fileExtList, "dans le répertoire", parm_directory)
-    #print('debug-->nombre de fichiers trouvés de type spécifié: ', nb_files,'.')
     if display1_ok: #pour passer à la ligne après le dernier sys.std (display1) s'il y en a eu
         msglibre="" #se place en fin de ligne
         print(msglibre)
         
     return listdata
+
+
+# In[10]:
+
+
+mydico={}
+mydico['data']={}
+mydico['data']['copy_event']=[{"event_init":"initialisation"}]
+mydico
+
+
+# In[11]:
+
+
+mylist=[]
+mylist.append("element")
+mylist
 
 
 # #test de la fonction fnph_listDirectory (nécessite fnph...)
@@ -625,30 +722,26 @@ def fnph_listDirectory(parm_directory, parm_fileExtDico, parm_db):
 # test=fnph_listDirectory(test_dir, test_type, mydb)                                        
 # test
 
-# In[ ]:
+# In[12]:
 
 
 #Fonction de recherche de présence de document dans la base
-def fnph_alreadyexists(parm_dirname, parm_filename):
+def fnph_alreadyexists_in_db(parm_dirname, parm_filename):
     """
     retourne un booléen
     """
 
-   #print('.............<fnph_alreadyexists>..............', parm_filename)
-   #print('debug-->recherche de parm_dirname =',parm_dirname)
-   #print('debug-->       et de parm_filename=',parm_filename)
     f=parm_filename
     if mycollection.count_documents({"orgnl_dirname":parm_dirname,"filename":parm_filename}, limit=1):
         result = True
     else:
         result = False
-   #print('debug-->result = ',result)
     
     return result
     
 
 
-# In[ ]:
+# In[13]:
 
 
 #fonction d'incrémentation de la variable globale global_num_fldr
@@ -661,7 +754,7 @@ def fnph_incremente_GLOBAL_NUM_FLDR():
     return(GLOBAL_NUM_FLDR)
 
 
-# In[ ]:
+# In[14]:
 
 
 #fonction d'incrémentation de la variable globale global_nbtotfiles_treated
@@ -674,7 +767,7 @@ def fnph_incremente_GLOBAL_NBTOTFILES_TREATED():
     return(GLOBAL_NBTOTFILES_TREATED)
 
 
-# In[ ]:
+# In[15]:
 
 
 def fnph_duree_restante(parm_timestart, parm_timenow, parm_nb_treated, parm_nb_tot):
@@ -691,7 +784,7 @@ def fnph_duree_restante(parm_timestart, parm_timenow, parm_nb_treated, parm_nb_t
     return(duree_restante) #à afficher avec str
 
 
-# In[ ]:
+# In[16]:
 
 
 #TEST fnph_duree_restante
@@ -710,46 +803,43 @@ duree_restante = fnph_duree_restante(test_start_time,
 str(test_start_time), str(test_dnow), test_monRepertoire_totalnb_files, str(duree_restante)
 
 
-# In[ ]:
+# In[17]:
 
 
-def fnph_cat_filesofonedirectory(parm_monRepertoire, parm_dicotypes, parm_mydb):
+def fnph_cat_filesofonedirectory_majdb(parm_monRepertoire, parm_dicotypes, 
+                                       parm_mydb, parm_do_copy=False, parm_do_copy_dest_dir_name=""):
     """
-    fonction de recherche des fichiers de type ceux passés en paramètres parm_types dans le répertoire passé en paramètres
+    fonction de recherche des fichiers de type parm_types dans le répertoire parm_monRepertoire
+    (via la fonction fnph_listDirectory_metadata_copy)
     avec récupération des metadonnées (exif, ...)
     et insertion du fichier et des metadonnées dans la bd si non déjà présent
     et retourne le nombre d'insertions effectuées, et le nombre de mise à jour
-    (ajout de parm_mydb pour l'appel à fnph_listDirectory pour l'appel à fnph_getimage)
+    (ajout de parm_mydb pour l'appel à fnph_listDirectory_metadata_copy pour l'appel à fnph_getimage)
     
     remarque : parm_types est un dictionnaire et uniquement passé aux fonctions appelées
     """
     
-    #print('debug-->........<fnph_cat_filesofonedirectory>..............'+str(datetime.now()))
+    #print('debug-->........<fnph_cat_filesofonedirectory_majdb>..............'+str(datetime.now()))
 
     nb_insert=0
     nb_update=0
     display2_ok=False #pour gestion de l'affichage
-    #on peut ajouter ici les stats par catégorie image/vidéo avec mylist[i]['cat_img']
+    #on peut ajouter ici les stats par catégorie image/vidéo avec mylist[i]["data"]['cat_img']
     
     #1-------------------------------------
     #Recherche des données à enregistrer dans la base pour chaque fichier dans parm_monRepertoire -> mylist
-    #print('debug-->début appel fnph_listDirectory', str(datetime.now()))
-    mylist = fnph_listDirectory(parm_monRepertoire, parm_dicotypes, parm_mydb)
-    #print("\nretour de fnph_listDirectory")
-    #print('debug-->fin   appel fnph_listDirectory', str(datetime.now()))
-    #print('debug--> len(mylist)=', len(mylist))
+    mylist = fnph_listDirectory_metadata_copy(parm_monRepertoire, parm_dicotypes, parm_mydb,
+                                              parm_do_copy, parm_do_copy_dest_dir_name)
     
     #2-------------------------------------
     #Ecriture de la liste des éléments dans la bd, élément par élément avec test de présence
-    #print('debug-->Ecriture ou màj des élément trouvés')
     #for i in tqdm.tqdm(range(len(mylist))):    #avec affichage de la barre de progression
     nb_files_in_rep=len(mylist) #pour l'affichage et éviter les calculs redondants (va plus vite ?)
     for i in range(nb_files_in_rep):
-        test_dirname  = mylist[i]["orgnl_dirname"]
-        test_filename = mylist[i]["filename"]
-        #print('debug-->', i, test_dirname[:20]+'...'+test_dirname[-40:], test_filename)
-        #pour l'affichage------------------------------------------------------------------------
-        #on écrit ici en sysout sur la même ligne pour donner une vision de l'avancement
+        test_dirname  = mylist[i]["data"]["orgnl_dirname"]
+        test_filename = mylist[i]["data"]["filename"]
+
+        #pour l'affichage-----sysout sur la même ligne pour donner une vision de l'avancement-------------d
         prct=(i+1)/nb_files_in_rep
         percentage = "{:.2%}".format(prct)
 
@@ -758,13 +848,13 @@ def fnph_cat_filesofonedirectory(parm_monRepertoire, parm_dicotypes, parm_mydb):
         sys.stdout.flush()
         display2_ok=True #pour gestion de l'affichage
         #print(msgtodisplay2)
+        #pour l'affichage---------------------------------------------------------------------------------f
         
         #----------------------------------------------------------------------------------------
 
         #test de présence dans la base
-        if fnph_alreadyexists(test_dirname, test_filename):
+        if mylist[i]["already_exist_in_db"]:
             #UPDATE
-            #print('<fnph_cat_f...> existe déjà  -> màj       de mylist[',i,'] --------', str(mylist[i])[0:40], '.........')
             ##### mise à jour par ajout de champ dans un champ existant (utilisation de .)
             dnow = datetime.now()
             #strnow = str(dnow.year)[:2]+str(dnow.month)+str(dnow.day)+str(dnow.hour)+str(dnow.minute)+str(dnow.second)+'_'+str(dnow.microsecond)
@@ -772,18 +862,24 @@ def fnph_cat_filesofonedirectory(parm_monRepertoire, parm_dicotypes, parm_mydb):
            #fieldname = 'events.event_'+str(strtimestamp)
             fieldname = 'events.event_'+global_unique_id.replace('.','_') #on met un identifiant unique pour tous les fichiers du même traitement
                
+            #set pour ajouter/màj un champ de type objet, push pour ajouter un élément dans un item de type liste"
             result = mycollection.update_many( 
-                         {"orgnl_dirname":test_dirname,"filename":test_filename}, 
-                         {'$set':{fieldname:{'edate':str(dnow),
-                                             'ename':'insert ko',
-                                             'estatus':'already exists',
-                                             }}} )
+                                                 {"orgnl_dirname":test_dirname,"filename":test_filename}, 
+                                                 {'$set' :{fieldname    :{'edate':str(dnow),
+                                                                         'ename':'insert ko',
+                                                                         'estatus':'already exists',
+                                                                         }
+                                                          },
+                                                  '$push':{"copy_events":{"$each":mylist[i]["data"]["copy_events"]}}
+                                                  }
+                                             )
+            
             nb_update+=1
             
         else:
             #INSERT
             #print('<fnph_cat_f...> n''existe pas -> insertion de mylist[',i,'] --------', str(mylist[i])[0:40], '.........')
-            mycollection.insert_one(mylist[i])
+            mycollection.insert_one(mylist[i]["data"])
             nb_insert+=1
             
     
@@ -794,12 +890,27 @@ def fnph_cat_filesofonedirectory(parm_monRepertoire, parm_dicotypes, parm_mydb):
             
 
 
-# In[ ]:
+# In[18]:
+
+
+test_dirname="C:\\Users\\LENOVO\\Documents\\Projets\\Prj_photos\\Prjph_repertoire_test\\diximages\\sr_deuximages"
+test_dirname="C:\\Users\\LENOVO\\Documents\\Projets\\Prj_photos\\Prjph_repertoire_test\\diximages"
+test_filename="Capturefondnb.JPG"
+
+#mylist[i]["data"]["copy_events"]
+
+#result = mycollection.update_many( 
+#                                                 {"orgnl_dirname":test_dirname,"filename":test_filename}, 
+#                                                 {"$push"        :{"copy_events":[{"nouveau":8}]}        })
+
+
+# In[19]:
 
 
 #fonction récursive de traitement d'un répertoire
 
-def fnph_traitementrep(parm_rep, parm_dicotypes, parm_mydb, parm_df_log_cols):
+def fnph_traitementrep(parm_rep, parm_dicotypes, parm_mydb, parm_df_log_cols, 
+                       parm_do_copy=False, parm_do_copy_dest_dir_name=""):
     """fonction récursive de traitement d'un répertoire et de ses sous-répertoires
         par lecture des sous-répertoires
         et pour chacun, appel récursif de la fonction pour effectuer le même traitement
@@ -830,19 +941,12 @@ def fnph_traitementrep(parm_rep, parm_dicotypes, parm_mydb, parm_df_log_cols):
     #----------------------------------------------
     #1)recherche des répertoires (sous-répertoires)
     #----------------------------------------------
-    #print("debug-->début liste_repertoires", str(datetime.now()))
     liste_repertoires = [r for r in listdir(parm_rep) if isdir(join(parm_rep, r))]
     #possible ici de remplacer par scandir... à voir
     
-    #print(len(liste_repertoires), 'sous-répertoires trouvés:',liste_repertoires)
-    #print("debug-->fin   liste_repertoires", str(datetime.now()))
-    
     #Traitement des répertoires (appel récursif) pour traitement des fichiers et des (sous-)répertoires
-    #print('debug-->Traitement des sous-répertoires-----liste_repertoires=', liste_repertoires)
     #for onerep in tqdm.tqdm(liste_repertoires):   #avec affichage de la barre de progression
-    #print("debug-->début boucle onerep "+str(datetime.now()))
     for onerep in liste_repertoires:
-        #print('debug-->onerep=', onerep, datetime.now())
         #pour chaque sous-rep trouvé :
         local_log_nb_rep+=1 #incrémentation du nombre de répertoires traités à chaque répertoire traité
         
@@ -854,10 +958,8 @@ def fnph_traitementrep(parm_rep, parm_dicotypes, parm_mydb, parm_df_log_cols):
         #                                        ignore_index=True)
         
         #appel récursif --------------------------------------------------------------------------------
-        #print("debug-->début fnph_traitementrep", str(datetime.now()))
-        list_rep_nb = fnph_traitementrep(join(parm_rep,onerep), parm_dicotypes, parm_mydb, parm_df_log_cols)
-        #print("debug-->fin   fnph_traitementrep", str(datetime.now()))
-        #print('debug-->retour appel fnph_traitementrep -> list_rep_nb:',list_rep_nb, 'type=', type(list_rep_nb))
+        list_rep_nb = fnph_traitementrep(join(parm_rep,onerep), parm_dicotypes, parm_mydb, parm_df_log_cols, 
+                                         parm_do_copy, parm_do_copy_dest_dir_name)
         #appel récursif --------------------------------------------------------------------------------
         if type(list_rep_nb)==list:
             nbtot_insert    +=list_rep_nb[0]
@@ -865,23 +967,22 @@ def fnph_traitementrep(parm_rep, parm_dicotypes, parm_mydb, parm_df_log_cols):
             local_log_nb_rep+=list_rep_nb[2]
             local_df_log     =local_df_log.append(list_rep_nb[3])
 
-    #print("debug-->fin boucle onerep "+str(datetime.now()))
     #----------------------------------------------
     #2)traitement des fichiers du répertoire courant avec insert et/ou update dans la fonction fnph_cat_filesononedirectory()
     #----------------------------------------------
-    #print('debug-->Recherche des fichiers------')       
     #appel à la fonction de traitement des fichiers du répertoire 
     # (recherche des fichiers dans le répertoire, de leurs metadonnées et mise à jour de la bd)
-    loc_debut_time=datetime.now() #debug : pour avoir une idée de la durée de l'appel (insertion/update)
+    loc_debut_time=datetime.now() #pour avoir une idée de la durée de l'appel (insertion/update)
     #--------------------------------------------------------------------------------
-    list_files_nb = fnph_cat_filesofonedirectory(parm_rep, parm_dicotypes, parm_mydb)
+    list_files_nb = fnph_cat_filesofonedirectory_majdb(parm_rep, parm_dicotypes, parm_mydb, 
+                                                       parm_do_copy, parm_do_copy_dest_dir_name)
     #--------------------------------------------------------------------------------
     loc_fin_time  =datetime.now() #
     loc_duree = loc_fin_time - loc_debut_time
     if type(list_files_nb)==list:
         nbtot_insert+=list_files_nb[0]
         nbtot_update+=list_files_nb[1]
-        #ce print pour aller à la ligne après les sys.stdout.write dans fnph_cat_filesofonedirectory
+        #ce print pour aller à la ligne après les sys.stdout.write dans fnph_cat_filesofonedirectory_majdb
         #print(" <... (put in bd:" + str(list_files_nb[0]+list_files_nb[1]) + ")>") 
         #sys.stdout.write("\r" + "<sys3" +
         #           str(list_files_nb[0]+list_files_nb[1]) + 
@@ -901,13 +1002,12 @@ def fnph_traitementrep(parm_rep, parm_dicotypes, parm_mydb, parm_df_log_cols):
                                              ignore_index=True) 
     
 
-    #print('debug-->fin trait rep', parm_rep, 'retour(local_log_nb_rep)=',local_log_nb_rep)
     return [nbtot_insert, nbtot_update, local_log_nb_rep, local_df_log]
         
         
 
 
-# In[ ]:
+# In[20]:
 
 
 #test appel fnph_traitementrep
@@ -933,11 +1033,15 @@ testRepertoire = r"C:\Users\LENOVO\Documents\Projets\Prj_photos\Prjph_repertoire
 mydico_types={'.JPG':'image','.jpg':'image'}
 mynbrep=0
 mydflog=pd.DataFrame([{'time':str(datetime.now()),'rep_explored':'a path', 'comment':'test'}])
-fnph_traitementrep(testRepertoire, mydico_types, mydb, mydflog.columns)
+
+#appel
+#fnph_traitementrep(testRepertoire, mydico_types, mydb, mydflog.columns)
+
+
 mydflog
 
 
-# In[ ]:
+# In[21]:
 
 
 def fnph_getimage(parm_path, parm_file, parm_db):
@@ -989,7 +1093,7 @@ def fnph_getimage(parm_path, parm_file, parm_db):
     return(meta)
 
 
-# In[ ]:
+# In[22]:
 
 
 def fnph_retreive_image(parm_filename, parm_mydb, parm_mycollection):
@@ -1030,7 +1134,7 @@ def fnph_retreive_image(parm_filename, parm_mydb, parm_mycollection):
     plt.show()
 
 
-# In[ ]:
+# In[23]:
 
 
 #test fnph_retreive_image
@@ -1040,7 +1144,7 @@ def fnph_retreive_image(parm_filename, parm_mydb, parm_mycollection):
 #testimage=fnph_retreive_image(filename, mydb, mycollection)
 
 
-# In[ ]:
+# In[24]:
 
 
 #Fonction de calcul du nombre et de la taille totale des fichiers catalgués dans la base
@@ -1067,10 +1171,11 @@ def fnph_clc_nb_st_size_tot(parm_collection):
     
     reslist=list(totalSize)[0]
     result=[reslist['totalSize'], reslist['count']]
+    
     return(result)
 
 
-# In[ ]:
+# In[25]:
 
 
 #Test appel fonction fnph_clc_nb_st_size_tot
@@ -1078,10 +1183,10 @@ client = pymongo.MongoClient('localhost',27017)
 mydb = client["prjph_catalogue"]
 mycollection = mydb["test_documents"]
 
-fnph_clc_nb_st_size_tot(mycollection)
+#fnph_clc_nb_st_size_tot(mycollection)
 
 
-# In[ ]:
+# In[26]:
 
 
 #test fnph_getimage
@@ -1095,7 +1200,7 @@ testmeta=fnph_getimage(testRepertoire,testfile, mydb)
 testmeta
 
 
-# In[ ]:
+# In[27]:
 
 
 def fnph_get_video_properties(filename):
@@ -1147,18 +1252,20 @@ def fnph_get_video_properties(filename):
     return properties
 
 
-# In[ ]:
+# In[28]:
 
 
 get_ipython().run_cell_magic('time', '', '#test appel fnph_get_video_properties\nmonRepertoire = r"C:\\Users\\LENOVO\\Videos\\Captures"\nmonRepertoire = r"C:\\Users\\LENOVO\\Documents\\Projets\\Prj_photos\\Prjph_repertoire_test\\Fichiers_MOV"\nmonFichier = "IMG_0578.MOV"\n\nmyfile=os.path.join(monRepertoire,monFichier)\nfnph_get_video_properties(myfile)\n')
 
 
-# In[ ]:
+# In[29]:
 
 
 def fnph_startandend_ajout_evnmtppl_mongodb(parm_state,        parm_titretraitement, parm_dir,   parm_types, 
                                             parm_mycollection, parm_tailletot,       parm_nbtot, parm_nb_insupd,
-                                            parm_nb_rep,       parm_duration):
+                                            parm_nb_rep,       parm_duration,
+                                            parm_do_copy,      parm_do_copy_dest_dir_name
+                                           ):
 
     """
     parm_state indique s'il s'agit du début du traitement ("début")
@@ -1189,11 +1296,9 @@ def fnph_startandend_ajout_evnmtppl_mongodb(parm_state,        parm_titretraitem
 
     #Création du dico
 
-
     #on créée la donnée eventppl si elle n'existe pas déjà (cas de création de la base)
     if parm_state=="début":
         if not mycollection.count_documents({"eventgnls.eventgnl_000000000.epname":"création"}, limit=1):
-            #print('debug-->insert eventgnls.eventgnl_000000000')
             mycollection.insert_one({"eventgnls":{"eventgnl_000000000":{"epdate":str(dnow),"epname":"création"}}})
 
     if parm_state=="fin":
@@ -1202,12 +1307,13 @@ def fnph_startandend_ajout_evnmtppl_mongodb(parm_state,        parm_titretraitem
         fieldname = 'eventgnls.eventgnl_'+global_unique_id.replace('.','_') #on met l'identifiant unique utilisé 
                                                                             #pour tous les fichiers du même traitement
                
-        #print('debug-->update eventgnls')
         result = mycollection.update_many( 
                      {"eventgnls.eventgnl_000000000.epname":'création'}, #on cherche eventppl renseigné (il n'y en a qu'un)
                      {'$set':{fieldname:{'epdate'           :str(dnow),  #ajout des données suivantes
                                          'epname'           :parm_titretraitement,
                                          'epdir'            :parm_dir,
+                                         'ep_copy_asked'    :parm_do_copy, 
+                                         'ep_copy_dest'     :parm_do_copy_dest_dir_name,
                                          'eptypes'          :parm_types,
                                          'epnb_ins'         :parm_nb_insupd[0],
                                          'epnb_upd'         :parm_nb_insupd[1],
@@ -1224,7 +1330,7 @@ def fnph_startandend_ajout_evnmtppl_mongodb(parm_state,        parm_titretraitem
             
 
 
-# In[ ]:
+# In[30]:
 
 
 def fnph_getstats_dir(parm_dir):
@@ -1243,7 +1349,7 @@ def fnph_getstats_dir(parm_dir):
     return [nb_files, nb_folders]
 
 
-# In[ ]:
+# In[31]:
 
 
 #test fnph_getstats_dir()
@@ -1255,16 +1361,16 @@ fnph_getstats_dir(path)
 
 # ## Programme principal
 
-# In[ ]:
+# In[32]:
 
 
-get_ipython().run_cell_magic('time', '', '#Programme principal\n#Lecture du catalogue de fichier et constitution du dictionnaire des données à insérer dans la base (fnp_listDirectory)\n#puis écriture dans la base de chaque fichier et de ses données s\'il n\'est pas déjà présent. Sinon, mise à jour de ses\n#données (ajout d\'un événement).\n\n\n#Paramètres utilisateurs***********************************************************************************\n#Paramètres utilisateurs***********************************************************************************\n#Paramètres utilisateurs***********************************************************************************\n#Paramètres utilisateurs***********************************************************************************\n#Paramètres utilisateurs***********************************************************************************\n#Paramètres utilisateurs***********************************************************************************\n#Paramètres utilisateurs***********************************************************************************\n\n#Répertoire de sauvegarde de l\'historique des répertoires explorés\nparm_df_log_rep = r\'C:\\Users\\LENOVO\\Documents\\Projets\\Prj_photos\\Prjph_log\'\n\n#Paramètres de connexion\n#------ Base  -------------------*\n#connection au serveur mongodb 27017, base test\nclient = pymongo.MongoClient(\'localhost\',27017)\nmydb = client["prjph_catalogue"]\n\n#------ LIBELLE DU TRAITEMENT-------------*  #1<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\nmontitre_traitement="Catalogue de fichiers - G:/SvgWhatsapp " #Est systématiquement complété plus bas\n                                                                             #par monRepertoire\n#------ COLLECTION -------------------*      #2<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\nmycollection_name = "test_documents"        #TEST\n#mycollection_name = "images_videos"          #PREPROD\n#------ ---------- -------------------*\nmycollection = mydb[mycollection_name]\n#------ REPERTOIRE INITIAL ---------------*  #3<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n#.........................................*\n#REPERTOIRES DE TEST (dans la collection test_documents)\n#.........................................*\nmonRepertoire = r"C:\\Users\\LENOVO\\Documents\\Projets\\Prj_photos\\Prjph_repertoire_test"\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Pictures\\MyPhotos"\n#monRepertoire = r"C:\\Users\\LENOVO\\Videos\\Captures"\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Pictures"\n#monRepertoire = r"C:\\Users\\LENOVO\\Documents\\Projets\\Prj_photos\\Prjph_repertoire_test\\diximages"\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\MyPhotos"\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Photos" #SUR LES .MOV UNIQUEMENT 181020 - 00h45 env (durée : qq minutes) ok\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Picosmos" #nouveaux types d\'images : webp\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Svgd_iPhone" ok\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\SvgWhatsapp\\iPhone de Patrice iPhone 5S\\Messages\\2019-06-06\\WhatsApp\\Coeur de kid\\Coeur de kid [1]"\n#.........................................*\n#REPERTOIRES DE PREPROD (dans la collection images_videos)\n#.........................................*\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\De_DD_Verbatim" #171020 - 00h33 environ. ko \n#monRepertoire = r"C:\\Users\\LENOVO\\Documents\\Projets\\Prj_photos\\Prjph_repertoire_test\\Nouveau dossier" #pour résoudre pbl ouverture img=PIL....img\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\De_DD_Verbatim" #171020 - 01h03 environ. ok (durée : 1h52)\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Chiens" #171020 - 16h00 env (durée : qq secondes)\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Ecole" #171020 - 16h05 env (durée : qq secondes)\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Photos" #181020 - 00h22 env (durée : ...) ko (manque subprocess pour les mov)\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Photos" #181020 - 00h57 env (durée : ...) ko (encore subprocess - pourtant corrigé -> ajout d\'une exception)\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Photos" #181020 - 1h36 env (durée : 4h env) ok\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Picosmos" #181020 - 13h30 env (qq secondes) ok (nouveaux types d\'images : webp)\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Svgd_iPhone"\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Photos_classement" #181020 - 17h env (45min) ok\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Photos_svg_sur_MyBook_le181122" #181020 - 19h10 env (2h) ok\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\SvgWhatsapp"\n#----------------------------------------------------------------------------*\n\n#ajout de monRepertoire à montitre_traitement\nmontitre_traitement += "("+monRepertoire+")"\n#------  TYPES DE FICHIERS  ------------------*\n#listes des extensions et leur label\n#Remarque : les contrôles se font sans la casse\nmes_types_images = {\n                \'.BMP\'  : \'image\',                \'.TIFF\' : \'image\',\n                \'.tif\'  : \'image\',                \'.JPEG\' : \'image\',\n                \'.jpg\'  : \'image\',                \'.jfif\' : \'image\',\n                \'.pjpeg\': \'image\',                \'.pgp\'  : \'image\',\n                \'.GIF\'  : \'image\',                \'.PNG\'  : \'image\',\n                \'.svg\'  : \'image\',                \'.webp\' : \'image\'\n                        }\n\nmes_types_videos = {\n                \'.mp4\' : \'video\',                \'.mov\' : \'video\',\n                \'.avi\' : \'video\',                \'.flv\' : \'video\',\n                \'.wmv\' : \'video\',                \'.mpeg\': \'video\',\n                \'.mkv\' : \'video\',                \'.asf\' : \'video\',\n                \'.rm\'  : \'video\',                \'.vob\' : \'video\',\n                \'.ts\'  : \'video\',                \'.dat\' : \'video\'\n                        }\n\n#mes_types_images = {\'.xxx\'  : \'pour test aucune image\'}\n#mes_types_videos = {\'.mov\'  : \'pour test videos mov\'  }\n\n#fin Paramètres************************************************************************************************\n#fin Paramètres************************************************************************************************\n#fin Paramètres************************************************************************************************\n#fin Paramètres************************************************************************************************\n#fin Paramètres************************************************************************************************\n#fin Paramètres************************************************************************************************\n\n\n#----------------\n#DEBUT TRAITEMENT\n#----------------\n\n#----------------\n#initialisations\n#----------------\n\n#Compteurs\nlog_nb_rep                = 0 #nombre de répertoires traités    \nGLOBAL_NUM_FLDR           = 0 #numéro du répertoire traité\nGLOBAL_NBTOTFILES_TREATED = 0 #nombre total de fichiers traités\n#df historique des répertoires traités\ndf_log = pd.DataFrame(columns=[\'unique_id\',\n                               \'time\',\n                               \'rep_explored\',\n                               \'nb_sous_rep\', \'nb_of_files\', \n                               \'nb_of_files_cumul\', \n                               \'comment\'])\n#globa_unique_id : Variable de valeur unique pour rsgner unique_id lors des différents appels\nstrtimestamp = str(datetime.timestamp(datetime.now()))\nglobal_unique_id = strtimestamp\nprint(\'\\n           global_unique_id:\', global_unique_id,\'\\n\')\n\n\n#teste l\'existence du répertoire de sauvegarde du log avant de démarrer\nif not os.path.exists(parm_df_log_rep):\n    print(\'ERREUR : le répertoire de sauvegarde n\'\'existe pas\')\n    print(\'ERREUR : \' + parm_df_log_rep)\n    print(\'ERREUR : veuillez vérifier et relancer\')\n    sys.exit("haa! errors! vérifier le nom du répertoire du log en paramètre et relancer")\n\n#------------\n# TRAITEMENT\n#------------\nstart_time=datetime.now()\nprint(\'start..................... : \', start_time, \'\\n\')\n\nprint(\'accès à\', monRepertoire, \'pour récupérer le nombre de sous-répertoires et de fichiers...\')\nprint(\'...\')\nmonRepertoire_totalnb_files, monRepertoire_totalnb_fldrs = fnph_getstats_dir(monRepertoire) \nprint(\'... ok\') #- accès à\', monRepertoire, \'pour récupérer le nombre de sous-répertoires et de fichiers...\\n\')\n\nprint("\\n**** Collection            :", mycollection_name, "****\\n")\nprint("**** Répertoire            :"  , monRepertoire, "****\\n")\nprint("****  nb folders (total)   :"  , monRepertoire_totalnb_fldrs+1, "****\\n")\nprint("****  nb files (tous types):"  , monRepertoire_totalnb_files  , "****\\n" )\n\nprint(\'remarque : les deux nombres après chaque répertoire correspondent\')\nprint(\'           au nombre de fichiers à la racine du répertoire et celui cumulé avec ceux des sous-répertoires\')\nprint(\'           de type recherché et qui ont été insérés ou mis à jours dans la base\\n\')\n\n\n#ajout de la ligne start dans df_log \n#rmq : nb_sous_rep et nb_of_files sont les documents à la racine du répertoire, pas le total\ndf_log=df_log.append({\'unique_id\'   :global_unique_id,\n                      \'time\'        :str(datetime.now()),\n                      \'rep_explored\':" <--- début de traitement - <"+montitre_traitement+">-->",\n                      \'comment\'     :"start "}, ignore_index=True)\n\n#------------------------------------------------------------------------\n#mise sous format lower pour comparaison sans prise en compte de la casse \n#(les extensions de fichiers lues sont mises en minuscules)\n# avec fusion des deux listes\nA, B = mes_types_images, mes_types_videos\nmydico_types = {key.lower():value for d in (A, B) for key,value in d.items()}\n\n#Début - insertion - Ajout de l\'insertion d\'un log + stats (taille globale et nombre de fichiers)\nfnph_startandend_ajout_evnmtppl_mongodb("début",      montitre_traitement, monRepertoire, mydico_types, \n                                        mycollection, 0                  ,0             ,           [], \n                                        log_nb_rep, "nb folders : "+str(monRepertoire_totalnb_fldrs) +\n                                                    "nb files   : "+str(monRepertoire_totalnb_files) \n                                        )\n\n#incrémentation du nombre de répertoires traités (+1) et écriture dans le df log du traitement du répertoire initial\n#remarque : en fait, cette ligne (répertoire initial) sera réécrite par la fonction fnph_traitementrep avec\n#           les nombres correspondants de sous-répertoires. Je la laisse car elle permet d\'identifier rapidement\n#           dans le df les répertoires de base de chaque traitement.\nlog_nb_rep+=1\ndf_log=df_log.append({\'unique_id\'   : global_unique_id,\n                      \'time\'        : str(datetime.now()),\n                      \'rep_explored\': monRepertoire,\n                      \'comment\'     :"Répertoire initial"}, ignore_index=True)\n\n#Appel pour traitement du répertoire initial et cumul des compteurs et du nombre de répertoires\n#---------------------------------------------------------------------------\nresult = fnph_traitementrep(monRepertoire, mydico_types, mydb, df_log.columns)\n#---------------------------------------------------------------------------\n#print(\'debug-->trace\')\nlog_nb_rep+=result[2]\n#print(\'debug-->log_nb_rep=\',result[2])\ndf_log=df_log.append(result[3])\n\n#Calcul de la taille globale de la base et du nombre de fichiers présents dans la base\nvar_tailletot, var_nbtot = fnph_clc_nb_st_size_tot(mycollection)\n\n#Fin - Ajout de l\'insertion d\'un log + stats (taille globale et nombre de fichiers)\nend_time=datetime.now()\nfnph_startandend_ajout_evnmtppl_mongodb("fin",        montitre_traitement, monRepertoire, mydico_types, \n                                        mycollection, var_tailletot,       var_nbtot,     result,\n                                        log_nb_rep, str(end_time - start_time))\n\n#-----------------------------------------------------------------------------\nmsg    = [\'\']*12\nend_time=datetime.now()\nmsg[0] = \'\\ndone----------------------------------------\'\nmsg[1] = \'nombre répertoires explorés       : \' + str(log_nb_rep)\nmsg[2] = \'nombre de fichiers traités        : \' + str(result[0]+result[1])\nmsg[3] = \'dont nb insertions                : \' + str(result[0])\nmsg[4] = \'et   nb updates                   : \' + str(result[1])\nmsg[5] = \'taille ttle des fichiers en base  : \' + str(var_tailletot)\nmsg[6] = \'nombre ttl de  documents en base  : \' + str(var_nbtot)\nmsg[7] = \'Durée du traitement               : \' + str(end_time - start_time)\nmsg[8] = \'\'\nmsg[9] = \'\'\nmsg[10] = \'done----------------------------------------\'\nfor i in range(len(msg)):\n    if msg[i]!=\'\':\n        print(msg[i])\n\n#svg du df pour enregistrement du répertoire traité dans un df historique.\nfor i in range(len(msg)):\n    if msg[i]!="":\n        df_log=df_log.append({\'unique_id\'   : global_unique_id,\n                              \'time\'        : str(end_time),\n                              \'rep_explored\': " <--- " + monRepertoire + " --- fin de traitement --->",\n                              \'comment\'     : msg[i]}, ignore_index=True)\n\n#Sauvegarde du df_log - nom complété de la collection et nom du répertoire exploré\ndnow = datetime.now()\nstrtimestamp = str(datetime.timestamp(dnow)).replace(\'.\',\'_\')\nmypathlog=r\'C:\\Users\\LENOVO\\Documents\\Projets\\Prj_photos\\Prjph_log\'\n#df_log_filename=\'prjph_df_log_\'+ str(strtimestamp) + \'.csv\'\ndf_log_filename= \'prjph_df_log__\' +                                   \\\n                    global_unique_id.replace(\'.\',\'_\') + "__" +        \\\n                    mycollection_name + "__" +                        \\\n                   (monRepertoire.split("\\\\")[-1]).replace(\' \',\'_\') + \\\n                 \'.csv\' #référencement avec global_unique_id utilisé pour référencer les documents dans la base.\ndf_log.to_csv(os.path.join(mypathlog,df_log_filename), sep=\'\\t\')\nprint(\'df_log savec into\', mypathlog)\n\nprint(\'\\nended..................... : \', end_time, \'\\n\')\n\n#Programme principal fin\n')
+get_ipython().run_cell_magic('time', '', '#Programme principal\n#Lecture du catalogue de fichier et constitution du dictionnaire des données à insérer dans la base (fnp_listDirectory)\n#puis écriture dans la base de chaque fichier et de ses données s\'il n\'est pas déjà présent. Sinon, mise à jour de ses\n#données (ajout d\'un événement).\n\n\n#Paramètres utilisateurs***********************************************************************************\n#Paramètres utilisateurs***********************************************************************************\n#Paramètres utilisateurs***********************************************************************************\n#Paramètres utilisateurs***********************************************************************************\n#Paramètres utilisateurs***********************************************************************************\n#Paramètres utilisateurs***********************************************************************************\n#Paramètres utilisateurs***********************************************************************************\n\n#Répertoire de sauvegarde de l\'historique des répertoires explorés\nparm_df_log_rep = r\'C:\\Users\\LENOVO\\Documents\\Projets\\Prj_photos\\Prjph_log\'\n\n#Paramètres de connexion\n#------ Base  -------------------*\n#connection au serveur mongodb 27017, base test\nclient = pymongo.MongoClient(\'localhost\',27017)\nmydb = client["prjph_catalogue"]\n\n#------ COPIE DES FICHIERS ? -------------*  #0<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\nmydo_copy = True\nmydo_copy_dest_dir_name = r"C:\\Users\\LENOVO\\Documents\\Projets\\Prj_photos\\Prjph_repertoire_test\\test_shutil\\copies"\n\n#------ LIBELLE DU TRAITEMENT-------------*  #1<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\nmontitre_traitement="Catalogue de fichiers - " #Est systématiquement complété plus bas\n                                                                             #par monRepertoire\n#------ COLLECTION -------------------*      #2<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\nmycollection_name = "test_documents"        #TEST\n#mycollection_name = "images_videos"          #PREPROD\n#------ ---------- -------------------*\nmycollection = mydb[mycollection_name]\n#------ REPERTOIRE INITIAL ---------------*  #3<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n#.........................................*\n#REPERTOIRES DE TEST (dans la collection test_documents)\n#.........................................*\nmonRepertoire = r"C:\\Users\\LENOVO\\Documents\\Projets\\Prj_photos\\Prjph_repertoire_test\\test_shutil"\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Pictures\\MyPhotos"\n#monRepertoire = r"C:\\Users\\LENOVO\\Videos\\Captures"\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Pictures"\n#monRepertoire = r"C:\\Users\\LENOVO\\Documents\\Projets\\Prj_photos\\Prjph_repertoire_test\\diximages"\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\MyPhotos"\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Photos" #SUR LES .MOV UNIQUEMENT 181020 - 00h45 env (durée : qq minutes) ok\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Picosmos" #nouveaux types d\'images : webp\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Svgd_iPhone" ok\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\SvgWhatsapp\\iPhone de Patrice iPhone 5S\\Messages\\2019-06-06\\WhatsApp\\Coeur de kid\\Coeur de kid [1]"\n#.........................................*\n#REPERTOIRES DE PREPROD (dans la collection images_videos)\n#.........................................*\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\De_DD_Verbatim" #171020 - 00h33 environ. ko \n#monRepertoire = r"C:\\Users\\LENOVO\\Documents\\Projets\\Prj_photos\\Prjph_repertoire_test\\Nouveau dossier" #pour résoudre pbl ouverture img=PIL....img\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\De_DD_Verbatim" #171020 - 01h03 environ. ok (durée : 1h52)\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Chiens" #171020 - 16h00 env (durée : qq secondes)\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Ecole" #171020 - 16h05 env (durée : qq secondes)\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Photos" #181020 - 00h22 env (durée : ...) ko (manque subprocess pour les mov)\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Photos" #181020 - 00h57 env (durée : ...) ko (encore subprocess - pourtant corrigé -> ajout d\'une exception)\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Photos" #181020 - 1h36 env (durée : 4h env) ok\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Picosmos" #181020 - 13h30 env (qq secondes) ok (nouveaux types d\'images : webp)\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Svgd_iPhone"\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Photos_classement" #181020 - 17h env (45min) ok\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\Photos_svg_sur_MyBook_le181122" #181020 - 19h10 env (2h) ok\n#monRepertoire = r"\\\\DESKTOP-AQNKR8B\\SvgWhatsapp"\n#----------------------------------------------------------------------------*\n\n#ajout de monRepertoire à montitre_traitement\nmontitre_traitement += "("+monRepertoire+")"\n#------  TYPES DE FICHIERS  ------------------*\n#listes des extensions et leur label\n#Remarque : les contrôles se font sans la casse\nmes_types_images = {\n                \'.BMP\'  : \'image\',                \'.TIFF\' : \'image\',\n                \'.tif\'  : \'image\',                \'.JPEG\' : \'image\',\n                \'.jpg\'  : \'image\',                \'.jfif\' : \'image\',\n                \'.pjpeg\': \'image\',                \'.pgp\'  : \'image\',\n                \'.GIF\'  : \'image\',                \'.PNG\'  : \'image\',\n                \'.svg\'  : \'image\',                \'.webp\' : \'image\'\n                        }\n\nmes_types_videos = {\n                \'.mp4\' : \'video\',                \'.mov\' : \'video\',\n                \'.avi\' : \'video\',                \'.flv\' : \'video\',\n                \'.wmv\' : \'video\',                \'.mpeg\': \'video\',\n                \'.mkv\' : \'video\',                \'.asf\' : \'video\',\n                \'.rm\'  : \'video\',                \'.vob\' : \'video\',\n                \'.ts\'  : \'video\',                \'.dat\' : \'video\'\n                        }\n\n#mes_types_images = {\'.xxx\'  : \'pour test aucune image\'}\n#mes_types_videos = {\'.mov\'  : \'pour test videos mov\'  }\n\n#fin Paramètres************************************************************************************************\n#fin Paramètres************************************************************************************************\n#fin Paramètres************************************************************************************************\n#fin Paramètres************************************************************************************************\n#fin Paramètres************************************************************************************************\n#fin Paramètres************************************************************************************************\n\n\n#----------------\n#DEBUT TRAITEMENT\n#----------------\n\n#----------------\n#initialisations\n#----------------\n\n#Compteurs\nlog_nb_rep                = 0 #nombre de répertoires traités    \nGLOBAL_NUM_FLDR           = 0 #numéro du répertoire traité\nGLOBAL_NBTOTFILES_TREATED = 0 #nombre total de fichiers traités\n#df historique des répertoires traités\ndf_log = pd.DataFrame(columns=[\'unique_id\',\n                               \'time\',\n                               \'rep_explored\',\n                               \'nb_sous_rep\', \'nb_of_files\', \n                               \'nb_of_files_cumul\', \n                               \'comment\'])\n#globa_unique_id : Variable de valeur unique pour rsgner unique_id lors des différents appels\nstrtimestamp = str(datetime.timestamp(datetime.now()))\nglobal_unique_id = strtimestamp\nprint(\'\\n           global_unique_id:\', global_unique_id,\'\\n\')\n\n\n#teste l\'existence du répertoire de sauvegarde du log avant de démarrer\nif not os.path.exists(parm_df_log_rep):\n    print(\'ERREUR : le répertoire de sauvegarde n\'\'existe pas\')\n    print(\'ERREUR : \' + parm_df_log_rep)\n    print(\'ERREUR : veuillez vérifier et relancer\')\n    sys.exit("haa! errors! vérifier le nom du répertoire du log en paramètre et relancer")\n\n#------------\n# TRAITEMENT\n#------------\nstart_time=datetime.now()\nprint(\'start..................... : \', start_time, \'\\n\')\n\nprint(\'accès à\', monRepertoire, \'pour récupérer le nombre de sous-répertoires et de fichiers...\')\nprint(\'...\')\nmonRepertoire_totalnb_files, monRepertoire_totalnb_fldrs = fnph_getstats_dir(monRepertoire) \nprint(\'... ok\') #- accès à\', monRepertoire, \'pour récupérer le nombre de sous-répertoires et de fichiers...\\n\')\n\nprint("\\n**** Collection            :", mycollection_name, "****\\n")\nprint("**** Répertoire            :"  , monRepertoire, "****\\n")\nprint("****  nb folders (total)   :"  , monRepertoire_totalnb_fldrs+1, "****\\n")\nprint("****  nb files (tous types):"  , monRepertoire_totalnb_files  , "****\\n" )\n\nprint(\'remarque : les deux nombres après chaque répertoire correspondent\')\nprint(\'           au nombre de fichiers à la racine du répertoire et celui cumulé avec ceux des sous-répertoires\')\nprint(\'           de type recherché et qui ont été insérés ou mis à jours dans la base\\n\')\n\n\n#ajout de la ligne start dans df_log \n#rmq : nb_sous_rep et nb_of_files sont les documents à la racine du répertoire, pas le total\ndf_log=df_log.append({\'unique_id\'   :global_unique_id,\n                      \'time\'        :str(datetime.now()),\n                      \'rep_explored\':" <--- début de traitement - <"+montitre_traitement+">-->",\n                      \'comment\'     :"start "}, ignore_index=True)\n\n#------------------------------------------------------------------------\n#mise sous format lower pour comparaison sans prise en compte de la casse \n#(les extensions de fichiers lues sont mises en minuscules)\n# avec fusion des deux listes\nA, B = mes_types_images, mes_types_videos\nmydico_types = {key.lower():value for d in (A, B) for key,value in d.items()}\n\n#Début - insertion - Ajout de l\'insertion d\'un log + stats (taille globale et nombre de fichiers)\nfnph_startandend_ajout_evnmtppl_mongodb("début",      montitre_traitement, monRepertoire, mydico_types, \n                                        mycollection, 0                  ,0             ,           [], \n                                        log_nb_rep, "nb folders : "+str(monRepertoire_totalnb_fldrs) +\n                                                    "nb files   : "+str(monRepertoire_totalnb_files),\n                                        mydo_copy, mydo_copy_dest_dir_name\n                                        )\n\n#incrémentation du nombre de répertoires traités (+1) et écriture dans le df log du traitement du répertoire initial\n#remarque : en fait, cette ligne (répertoire initial) sera réécrite par la fonction fnph_traitementrep avec\n#           les nombres correspondants de sous-répertoires. Je la laisse car elle permet d\'identifier rapidement\n#           dans le df les répertoires de base de chaque traitement.\nlog_nb_rep+=1\ndf_log=df_log.append({\'unique_id\'   : global_unique_id,\n                      \'time\'        : str(datetime.now()),\n                      \'rep_explored\': monRepertoire,\n                      \'comment\'     :"Répertoire initial"}, ignore_index=True)\n\n#Appel pour traitement du répertoire initial et cumul des compteurs et du nombre de répertoires\n#---------------------------------------------------------------------------\nresult = fnph_traitementrep(monRepertoire, mydico_types, mydb, df_log.columns, \n                            mydo_copy, mydo_copy_dest_dir_name)\n#---------------------------------------------------------------------------\nlog_nb_rep+=result[2]\ndf_log=df_log.append(result[3])\n\n#Calcul de la taille globale de la base et du nombre de fichiers présents dans la base\nvar_tailletot, var_nbtot = fnph_clc_nb_st_size_tot(mycollection)\n\n#Fin - Ajout de l\'insertion d\'un log + stats (taille globale et nombre de fichiers)\nend_time=datetime.now()\nfnph_startandend_ajout_evnmtppl_mongodb("fin",        montitre_traitement, monRepertoire, mydico_types, \n                                        mycollection, var_tailletot,       var_nbtot,     result,\n                                        log_nb_rep, str(end_time - start_time),\n                                        mydo_copy, mydo_copy_dest_dir_name\n                                        )\n\n#-----------------------------------------------------------------------------\nmsg    = [\'\']*12\nend_time=datetime.now()\nmsg[0] = \'\\ndone----------------------------------------\'\nmsg[1] = \'nombre répertoires explorés       : \' + str(log_nb_rep)\nmsg[2] = \'nombre de fichiers traités        : \' + str(result[0]+result[1])\nmsg[3] = \'dont nb insertions                : \' + str(result[0])\nmsg[4] = \'et   nb updates                   : \' + str(result[1])\nmsg[5] = \'taille ttle des fichiers en base  : \' + str(var_tailletot)\nmsg[6] = \'nombre ttl de  documents en base  : \' + str(var_nbtot)\nmsg[7] = \'Durée du traitement               : \' + str(end_time - start_time)\nmsg[8] = \'\'\nmsg[9] = \'\'\nmsg[10] = \'done----------------------------------------\'\nfor i in range(len(msg)):\n    if msg[i]!=\'\':\n        print(msg[i])\n\n#svg du df pour enregistrement du répertoire traité dans un df historique.\nfor i in range(len(msg)):\n    if msg[i]!="":\n        df_log=df_log.append({\'unique_id\'   : global_unique_id,\n                              \'time\'        : str(end_time),\n                              \'rep_explored\': " <--- " + monRepertoire + " --- fin de traitement --->",\n                              \'comment\'     : msg[i]}, ignore_index=True)\n\n#Sauvegarde du df_log - nom complété de la collection et nom du répertoire exploré\ndnow = datetime.now()\nstrtimestamp = str(datetime.timestamp(dnow)).replace(\'.\',\'_\')\nmypathlog=r\'C:\\Users\\LENOVO\\Documents\\Projets\\Prj_photos\\Prjph_log\'\n#df_log_filename=\'prjph_df_log_\'+ str(strtimestamp) + \'.csv\'\ndf_log_filename= \'prjph_df_log__\' +                                   \\\n                    global_unique_id.replace(\'.\',\'_\') + "__" +        \\\n                    mycollection_name + "__" +                        \\\n                   (monRepertoire.split("\\\\")[-1]).replace(\' \',\'_\') + \\\n                 \'.csv\' #référencement avec global_unique_id utilisé pour référencer les documents dans la base.\ndf_log.to_csv(os.path.join(mypathlog,df_log_filename), sep=\'\\t\')\nprint(\'df_log savec into\', mypathlog)\n\nprint(\'\\nended..................... : \', end_time, \'\\n\')\n\n#Programme principal fin\n')
 
 
-# In[ ]:
+# In[33]:
 
 
 pd.set_option('display.max_colwidth', None)  
 pd.set_option('display.max_rows', df_log.shape[0]+1)
-df_log
+#df_log
 
