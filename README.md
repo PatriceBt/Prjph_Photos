@@ -1,5 +1,7 @@
 # Prjph_Photos - Projet de gestion des photos et videos : Catalogue - Statistiques - Copies - Création d'albums
 
+
+
 ## Catalogue de photos
 
 Recherche de photos dans l'arborescence sous-jacente au répertoire indiqué par l'utilisateur.
@@ -12,6 +14,47 @@ référencer d'éventuelles nouvelles photos sans avoir à tout référencer à 
 
 obtenir des dossiers (albums) constitués de copies de photos par classement souhaité (doublons possibles).
 
+### Anomalie
+
+an01 : sur lecture fichier 3gp, pbl de format de metadonnées (utf8...)
+		--> corriger (test sur le format des données) puis faire ev01 avant relance
+
+### Evolutions possibles
+
+ev01 : Gestion des reprises
+	Ajout d'une clé 'répertoires traités' dans eventgnl donnant la liste des répertoires traités pendant la session
+        pour chaque répertoire, un indicateur 'répertoire terminé' indique s'il a été traité en entier
+		Ceci pour permettre, en cas d'arrêt (plantage sur une donnée par exemple) pendant le traitement, de reprendre sans avoir 
+		à parcourir tous les fichiers de chaque répertoire. Test à faire en début de répertoire sur l'indicateur.
+
+ev01bis : Gestion de la durée de traitement - interruptions - reprise
+	Permettre un arrêt sur Touche appuyée ou selon un délai/horaire prédéterminé par l'utilisateur
+	Suggestion : En début de traitement de nouveau répertoire :
+			ajout d'un test dans la fonction récursive sur Touche appuyée/délai/horaire
+			sortie de la fonction 
+			Le répertoire précédemment traité sera topé 'traité' dans la base 
+			(création d'un item 'répertoires traités':[liste des répertoires traités])
+
+ev02 : Affichage sysout :
+        modifier l'affichage des fichiers lus/insupd pour que les données restent alignées
+		
+ev03 : Gestion des doublons : 
+		créer une fonction 'Gestion des doublons' qui détecte les doublons dans la base 
+		- choisir un algorithme
+		- pour chaque fichier traité :
+			- une variable clé "doublon" est ajoutée (niveau filename) :
+				{"doublon": {"est_en_double"   :True/False,
+							 "nb_of_same_files":nnnn}}
+							 "est_doublon_de"  :xxxx}}
+				- un indicateur 'est_en_double' (True/False) est valorisé à True si d'autres fichiers identiques sont dans la base
+				- un compteur 'nb_of_same_files' indique le nombre de fichiers identiques trouvés
+				- la variable "est_doublon_de" n'est pas valorisée
+				- pour chaque fichier trouvé identique, 
+					- la variable clé "est_en_double"  est valorisée à True
+					- la variable clé "est_doublon_de"  est valorisée avec le fichier traité comparé
+
+
+		
 ## Statistiques :
 
 nombre d'images par année, mois, jour
