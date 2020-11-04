@@ -1,6 +1,10 @@
 # Prjph_Photos - Projet de gestion des photos et videos : Catalogue - Statistiques - Copies - Création d'albums
 
 
+## Planning court terme  :
+
+an01
+
 
 ## Catalogue de photos
 
@@ -16,16 +20,27 @@ obtenir des dossiers (albums) constitués de copies de photos par classement sou
 
 ### Anomalie
 
-an01 : sur lecture fichier 3gp, pbl de format de metadonnées (utf8...)
-		--> corriger (test sur le format des données) puis faire ev01 avant relance
+#### Anomalies en cours de correction
 
-### Evolutions possibles
+#### Anomalies Corrigées :
+an01 : sur lecture fichier 3gp, pbl de format de metadonnées (utf8...) : exception (display)
+
+
+### Evolutions 
+
+#### Evolutions en cours de réalisation :
 
 ev01 : Gestion des reprises
-	Ajout d'une clé 'répertoires traités' dans eventgnl donnant la liste des répertoires traités pendant la session
-        pour chaque répertoire, un indicateur 'répertoire terminé' indique s'il a été traité en entier
+	Ajout d'une clé 'répertoires traités' dans eventgnl donnant la liste des répertoires traités pendant la session :
+    [{"rep":xxx, "date":unique_id},
+    {"rep":yyy, "date":unique_id2},
+    {"rep":zzz, "date":unique_id3},
+    ...]
+
 		Ceci pour permettre, en cas d'arrêt (plantage sur une donnée par exemple) pendant le traitement, de reprendre sans avoir 
 		à parcourir tous les fichiers de chaque répertoire. Test à faire en début de répertoire sur l'indicateur.
+
+see https://stackoverflow.com/questions/19802502/mongodb-query-help-query-on-values-of-any-key-in-a-sub-object/19802670#19802670
 
 ev01bis : Gestion de la durée de traitement - interruptions - reprise
 	Permettre un arrêt sur Touche appuyée ou selon un délai/horaire prédéterminé par l'utilisateur
@@ -52,6 +67,16 @@ ev03 : Gestion des doublons :
 				- pour chaque fichier trouvé identique, 
 					- la variable clé "est_en_double"  est valorisée à True
 					- la variable clé "est_doublon_de"  est valorisée avec le fichier traité comparé
+
+ev04a : ajout de compteurs sur les exceptions codées (excepts)
+ev04b : ajout de compteurs sur les répertoires non traités (gestion de reprise)
+
+ev05 : ajout de la sauvegarde de reproductions légères de l'image mise en base
+
+ev06 : fonction d'affichage des images (les reproductions légères) du catalogue (à voir avec la fonction de gestion du catalogue - 
+       création d'albums, classements...)
+       
+#### Evolutions mises en place
 
 
 		
@@ -160,7 +185,10 @@ Mise à jour de la base mongo avec les fichiers contenus dans la liste obtenue :
 
 # Catalogue : schéma du traitement (à mettre à jour)
 
-Demande de répertoire de recherche à l'utilisateur
+
+## Schéma
+
+Pour chaque répertoire : 
 
 Recherche d'images dans le répertoire indiqué et l'arborescence sous-jacente format sélectionné : img, jpeg
 
@@ -180,21 +208,47 @@ En cas de présence dans le catalogue du couple (source, fichier) (cas d'un cata
 
 Gestion d'un journal
 
-Début de traitement :
+      
+      
+## Détails
 
-  . Ecriture ligne :
+Initialisation des variables
+(répertoire de recherche)
+(compteurs)
+(extensions de fichiers)
 
-      - références du traitement
-      - répertoire indiqué par l'utilisateur
-      - répertoire de copie (lieu de stockage de la base de données)
+Recherche du nombre total de sous-répertoires et de fichiers contenus dans le répertoire à analyser (**fnph_getstats_dir**)
 
-Pour chaque copie
+Gestion du log (début)
 
-  . Ecriture ligne : 
+Gestion de la bd (début)
 
-      - chemin du répertoire origine
-      - nom du fichier origine
-      - nom fichier sauvegardé (après gestion de doublon)
+Traitement (récursif) du répertoire (**fnph_traitementrep**) 
+
+   \-------------------------------------------fnph_traitementrep---------------------------------------------
+   Initialisation des variables locales
+   
+   Gestion de reprise (début de traitement de répertoire)
+   
+   Recherche des sous-répertoires -> liste 
+   Traitement de chaque sous-répertoire (**fnph_traitementrep**)
+
+   Recherche et mise en catalogue des fichiers du répertoire -> liste (**fnph_cat_filesofonedirectory_majdb**)
+    
+   Gestion du log (traitement répertoire terminé)
+
+   Gestion de reprise (fin de traitement de répertoire)
+
+   \--------------------------------------------------------------------------------------------------------------
+
+
+Gestion de la bd (fin)
+
+Gestion du log (fin)
+
+
+## Remarques
+      
 Remarques sur les extensions image https://developer.mozilla.org/fr/docs/Web/Media/Formats/Types_des_images
 
 sur les extensions video https://www.reneelab.fr/extension-video.html
