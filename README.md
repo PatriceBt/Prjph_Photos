@@ -31,11 +31,14 @@ an01 : sur lecture fichier 3gp, pbl de format de metadonnées (utf8...) : except
 #### Evolutions en cours de réalisation :
 
 ev01 : Gestion des reprises
-	Ajout d'une clé 'répertoires traités' dans eventgnl donnant la liste des répertoires traités pendant la session :
-    [{"rep":xxx, "date":unique_id},
-    {"rep":yyy, "date":unique_id2},
-    {"rep":zzz, "date":unique_id3},
-    ...]
+	Ajout d'une clé 'répertoires traités' dans eventgnls donnant la liste des répertoires traités pendant la session :
+    {"eventgnls":
+       {"eventgnl_000000:{"epdate":xxx,"epname":création"},
+       {"eventgnl_1675456455_334567":{...}},
+       {...},
+       {"eventgnl_1675536755_667789":{...}},
+       {"eventgnl_processed_folders":[{"rep":xxx, "date":unique_id},{"rep":yyy, "date":unique_id2},{"rep":zzz, "date":unique_id3},...]}
+    }
 
 		Ceci pour permettre, en cas d'arrêt (plantage sur une donnée par exemple) pendant le traitement, de reprendre sans avoir 
 		à parcourir tous les fichiers de chaque répertoire. Test à faire en début de répertoire sur l'indicateur.
