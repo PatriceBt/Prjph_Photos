@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+# # Projet PHOTOS
+# 
 # # Création du catalogue de photos
 # 
 # ## Recherche de photos dans l'arbordescence sous-jacente au répertoire indiqué par l'utilisateur.
