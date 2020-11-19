@@ -65,7 +65,7 @@
 
 # # Imports
 
-# In[9]:
+# In[1]:
 
 
 import os
@@ -99,7 +99,7 @@ import time
 def fnph_clc_nb_st_size_tot(parm_collection):
     """
     Fonction de calcul du nombre et de la taille totale des fichiers catalgués dans la base
-    retourne une liste de deux éléments : taille, nombre
+    retourne une liste de deux éléments : taille totale, nombre de fichiers
     """
     #Requête aggrégation
     totalSize = parm_collection.aggregate(
@@ -159,7 +159,8 @@ def fnph_read_mongodb(
            parm_json_normalized =True):
     """ Read from Mongo and Store into DataFrame 
     découpage en chunk - chunksize à définir, pour l'instant fixée en début de traitement
-    En sortie : les données récupérées en format json ou non (parm_json_normalized)
+    En sortie : les données récupérées (tous les chunks concaténés) 
+                en format json ou en DataFrame (selon parm_json_normalized)
     """
 
     #df_result                 = pd.DataFrame()  non ! car test sur local()
@@ -225,117 +226,415 @@ def fnph_read_mongodb(
 get_ipython().run_cell_magic('time', '', '#Test fnph_read_mongodb()\n\n\nimport datetime\nfrom datetime import datetime\n\n#client = pymongo.MongoClient(\'localhost\',27017)\n#mydb = client["prjph_catalogue"]\ntest1mydb_name = "prjph_catalogue"\ntest1mycollection_name = "test_documents"          #TEST\n#mycollection_name = "images_videos"           #PREPROD\n#------ ---------- -------------------*\n#mycollection = mydb[mycollection_name]\n\n\ntest1mysize  = 1000\n\ntest1myquery_match      =  {"extfile":".mov"} #le null ne convient pas à Python\n#test1myquery_match      =  {} #le null ne convient pas à Python\n#   projection-->\ntest1myquery_projection =  {    "_id"              :1,\n                                "filename"         :1, \n                                "exif.36865"       :1, \n                                "exif.36866"       :1, \n                                "stats.st_mtime"   :1, \n                                "stats.st_size"    :1, \n                                "orgnl_dirname"    :1, \n                                "doctype"          :1, \n                                "extfile"          :1, \n                                "vid_ppty.duration":1, \n                                "exif.271"         :1, \n                                "exif.272"         :1  \n                           }\n#testmyquery_match={}\n#testmyquery_projection={}\n\n#Traitement\nmydate=datetime.now()\nmychunksize=test1mysize\nstart=datetime.now()\ndf_test1    = pd.DataFrame()\ndf_test1    = fnph_read_mongodb(test1mydb_name, \n                             test1mycollection_name, \n                             parm_query_match       = test1myquery_match, \n                             parm_query_projection  = test1myquery_projection,\n                             parm_chunksize=test1mysize, \n                             parm_no_id=False,\n                             parm_json_normalized = True)\nend  = datetime.now()\ntimelaps=end-start\nprint(\'durée :\', timelaps)\nprint(\'df_test1.shape =\', df_test1.shape)')
 
 
+# ## Fonction graphiques
+
 # In[6]:
 
 
-df_test1.head(2)
+df_stot =  pd.DataFrame(df_stats.groupby('doctype').agg({'filename':['count'], 'stats.st_size':['sum']}).sum(), 
+              columns=['sums'])
+df_stot
+df_stot.iloc[1:2]
+#df_stot.iloc[:1]
 
 
-# # Traitement principal
-
-# In[15]:
+# In[7]:
 
 
-get_ipython().run_cell_magic('time', '', '#Programme principal\n\n#----------------------------------------------------------------------------------------------------------\n#description :\n\n# Préparation\n# - Accès à la bd mongdodb\n# - Récupération des données dans un df (par découpage pour gérer vitesse vs utilisation mémoire)\n\n# Obtention des statistiques\n\n# Présentation des statistiques\n#----------------------------------------------------------------------------------------------------------\n\n\n#Paramètres utilisateurs***********************************************************************************\n#Libellé traitement 1<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\nmontitre_traitement="Stats - Premier traitement"\n#Répertoire de sauvegarde de l\'historique du traitement\nparm_df_log_rep = r\'C:\\Users\\LENOVO\\Documents\\Projets\\Prj_photos\\Prjph_log\'\n#Paramètres de connexion\n#------ Base  -------------------*\n#connection au serveur mongodb 27017, base test\nclient = pymongo.MongoClient(\'localhost\',27017)\nmydb = client["prjph_catalogue"]\nmydb_name = "prjph_catalogue"\nmychunksize = 5000                #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n#Collection                        2<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n#mycollection_name = "test_documents"          #TEST\nmycollection_name = "images_videos"           #PREPROD\n#------ ---------- -------------------*\nmycollection = mydb[mycollection_name]\n#Paramètres utilisateurs***********************************************************************************\n\n#----------------\n#DEBUT TRAITEMENT\n#----------------\n\n#----------------\n#initialisations\n#----------------\n\n#Compteurs\n\n#init du df historique des répertoires traités\ndf_log=pd.DataFrame(columns=[\'unique_id\',\'time\',\'rep_explored\',\'nb_sous_rep\', \'nb_of_files\', \'nb_of_files_cumul\', \'comment\'])          #df contenant la liste des répertoires traités\n\n#init du df historique des répertoires traités\ndf_stats=pd.DataFrame()          #NB : les colonnes du df seront définies par l\'appel à fnph_read_mongodb\n\n#global_unique_id : Variable de valeur unique pour rsgner unique_id lors des différents appels\nstrtimestamp = str(datetime.timestamp(datetime.now()))\nglobal_unique_id = strtimestamp\nprint(\'\\n           global_unique_id:\', global_unique_id,\'\\n\')\n\n#------------\n# TRAITEMENT\n#------------\n\n#==========*Entête*============\nstart_time=datetime.now()\nprint(\'start..................... : \', start_time, \'\\n\')\n\nprint("\\n**** Collection            :", mycollection_name, "****\\n")\nprint("****")\nprint("****")\nprint("****")\nprint("****")\nprint("****")\n\n#==========*Récupération des données*============\n\n#----Volume de la base : \nvol_base = fnph_clc_nb_st_size_tot(mycollection)\n\n#----Stockage en dataframe des données utiles\n\n#"filename"         :1, #nom du fichier\n#"exif.36865"       :1, #exif date de création \n#"exif.36866"       :1, #exif date de mise en data par l\'appareil (~date de création?)\n#"stats.st_mtime"   :1, #date de dernière modification (~date de création)\n#"stats.st_size"    :1, #taille en octets   \n#"orgnl_dirname"    :1, #nom du répertoire de stockage (au moment de la création du catalogue)\n#"doctype"          :1, #catégorie de fichier\n#"extfile"          :1, #extension du fichier (type)\n#"vid_ppty.duration":1, #durée (si vidéo)\n#"exif.271"         :1, #nom du fabriquant\n#"exif.272"         :1  #nom du modèle\n\n#myquery = { [ QueryMatch, QueryProject ] }\n\n#   match--> tous les documents (hors eventsgnls)\n#myquery_match      =  {"eventgnls":{"$eq":null} } }, #le null ne convient pas à Python\n#myquery_match      =  {"eventgnls":""} #le null ne convient pas à Python\n#myquery_match      =  {"extfile":".jpg"}\nmyquery_match      =  {}\n\n#   projection-->\nmyquery_projection =  { "_id"              :0,\n                        "filename"         :1, \n                        "stats.st_size"    :1, \n                        "stats.st_mtime"   :1, \n                        "exif.36865"       :1, \n                        "exif.36866"       :1, \n                        "extfile"          :1, \n                        "doctype"          :1, \n                        "orgnl_dirname"    :1, \n                        "vid_ppty.duration":1, \n                        "exif.271"         :1, \n                        "exif.272"         :1  \n                      }\n\ndeb=datetime.now()\n#print(\'debug-->avant read_mongodb :\', deb)\n\n#=======Requête de lecture de mongodb et récupération des données au format json normalized si souhaité================\ndf_stats = fnph_read_mongodb(mydb_name, \n                             mycollection_name, \n                             myquery_match, \n                             myquery_projection, \n                             parm_chunksize = mychunksize, \n                             parm_no_id = False,\n                             parm_json_normalized = True)\n#=======Requête de lecture de mongodb==================================================================================\n\n\n#--------------------------------------------------------\n# CALCUL ET REPRESENTATION GRAPHIQUE DES STATISTIQUES\n#--------------------------------------------------------\n\n#Préparation du df (df_stats) -------------\n#Ajout de colonnes\n\n#Conversion de st_mtime (timestamp) en date claire\ndf_stats[\'date_creation\'    ]   = df_stats[\'stats.st_mtime\'].apply(lambda x: time.strftime(\'%Y%m%d\', time.localtime(x))  if pd.notnull(x) else \'\')\ndf_stats[\'date_creation_y\'  ] = df_stats[\'stats.st_mtime\'].apply(lambda x: time.strftime(\'%Y\'    , time.localtime(x))  if pd.notnull(x) else \'\')\ndf_stats[\'date_creation_m\'  ] = df_stats[\'stats.st_mtime\'].apply(lambda x: time.strftime(\'%m\'    , time.localtime(x))  if pd.notnull(x) else \'\')\ndf_stats[\'date_creation_d\'  ] = df_stats[\'stats.st_mtime\'].apply(lambda x: time.strftime(\'%d\'    , time.localtime(x))  if pd.notnull(x) else \'\')\ndf_stats[\'date_creation_hms\'] = df_stats[\'stats.st_mtime\'].apply(lambda x: time.strftime(\'%H%M%S\', time.localtime(x))  if pd.notnull(x) else \'\')\n\n#Conversion de orgnl_dirname (liste) en string (la liste ne contient qu\'un seul élément)\ndf_stats[\'orgnl_dirname_str\'] = df_stats[\'orgnl_dirname\'].apply(lambda x: x[0])\n\n\n#--------------------\n# GRAPHIQUES\n#--------------------\n\n# - Quantités et volumes\n\nmytitle = \'Par année - quantité et volume des fichiers\'\nplt.figure(figsize=(15,5))\n#df_sq_year = df_stats.groupby(df_stats[\'date_creation_y\']).size()\ndf_sq_year = df_stats.groupby(\'date_creation_y\').agg({\'filename\':[\'count\'], \'stats.st_size\':[\'sum\']})\n#df_sq_year.plot.bar()\ndf_sq_year.plot(kind=\'bar\',subplots=True,sharex=True,sharey=False,title=mytitle);\n\nmytitle = \'Par mois - quantité et volume des fichiers\'\nplt.figure(figsize=(15,5))\ndf_sq_month = df_stats.groupby([\'date_creation_y\',\'date_creation_m\']).agg({\'filename\':[\'count\'], \'stats.st_size\':[\'sum\']})\n#df_sq_month.plot.bar()\ndf_sq_month.plot(kind=\'bar\',subplots=True,sharex=True,sharey=False,title=mytitle);\n\n\nmytitle = \'Par type de fichier (catégorie) - quantité et volume des fichiers\'\nplt.figure(figsize=(15,5))\ndf_sc = df_stats.groupby(\'doctype\').agg({\'filename\':[\'count\'], \'stats.st_size\':[\'sum\']})\ndf_sc.plot(kind=\'bar\',subplots=True,sharex=True,sharey=False,title=mytitle);\n\nmytitle = \'Par extension de fichier (type) - quantité et volume des fichiers\'\nplt.figure(figsize=(15,5))\ndf_st = df_stats.groupby(\'extfile\').agg({\'filename\':[\'count\'], \'stats.st_size\':[\'sum\']})\ndf_st.plot(kind=\'bar\',subplots=True,sharex=True,sharey=False,title=mytitle);\n\nmytitle = \'Par dossier [à modifier pour avoir le dossier initial de recherche] - quantité et volume des fichiers\'\nplt.figure(figsize=(15,5))\ndf_st = df_stats.groupby(\'orgnl_dirname_str\').agg({\'filename\':[\'count\'], \'stats.st_size\':[\'sum\']})\ndf_st.plot(kind=\'bar\',subplots=True,sharex=True,sharey=False,title=mytitle);\n\n\n\n# Croisements\nmytitle = \'Par année et catégorie - quantité et volume des fichiers\'\nplt.figure(figsize=(15,5))\ndf_syc = df_stats.groupby([\'date_creation_y\',\'doctype\']).agg({\'filename\':[\'count\'], \'stats.st_size\':[\'sum\']})\ndf_syc.plot(kind=\'bar\',subplots=True,sharex=True,sharey=False,title=mytitle);\n\n\n\n\n# --------------------\n# FIN DE TRAITEMENT\n# --------------------\nfin=datetime.now()\n#print(\'debug-->après read_mongodb :\', fin, "durée :", fin-deb)\n    \n#ajout de la ligne start dans df_log \n#rmq : nb_sous_rep et nb_of_files sont les documents à la racine du répertoire, pas le total\ndf_log=df_log.append({\'unique_id\'   :global_unique_id,\n                      \'time\'        :str(datetime.now()),\n                      \'rep_explored\':" <--- début de traitement - <"+montitre_traitement+">-->",\n                      \'comment\'     :"start "}, ignore_index=True)\n\n\n# ==============STATS DU TRAITEMENT===================\nmsg    = [\'\']*12\nend_time=datetime.now()\nmsg[0] = \'\\ndone----------------------------------------\'\nmsg[1] = \'df_stats.shape=\' + str(df_stats.shape)\nmsg[2] = \'\'\nmsg[3] = \'\'\nmsg[4] = \'\'\n#msg[5] = \'taille ttle des fichiers en base  : \' + str(var_tailletot)\n#msg[6] = \'nombre ttl de  documents en base  : \' + str(var_nbtot)\nmsg[7] = \'Durée du traitement               : \' + str(end_time - start_time)\nmsg[8] = \'\'\nmsg[9] = \'\'\nmsg[10] = \'done----------------------------------------\'\nfor i in range(len(msg)):\n    if msg[i]!=\'\':\n        print(msg[i])\n\n        \n#Stockage de la fin de traitement dans l\'historique df_log.\nfor i in range(len(msg)):\n    if msg[i]!="":\n        df_log=df_log.append({\'unique_id\'   : global_unique_id,\n                              \'time\'        : str(end_time),\n                              \'comment\'     : msg[i]}, ignore_index=True)\n\n#Sauvegarde du df_log - nom complété de la collection et nom du répertoire exploré\ndnow = datetime.now()\nstrtimestamp = str(datetime.timestamp(dnow)).replace(\'.\',\'_\')\nmypathlog=r\'C:\\Users\\LENOVO\\Documents\\Projets\\Prj_photos\\Prjph_log\'\n\ndf_log_filename= \'prjph_df_log_stats__\' +                                   \\\n                    global_unique_id.replace(\'.\',\'_\') + "__" +        \\\n                    mycollection_name + "__" +                        \\\n                 \'.csv\' #référencement avec global_unique_id utilisé pour référencer les documents dans la base.\ndf_log.to_csv(os.path.join(mypathlog,df_log_filename), sep=\'\\t\')\nprint(df_log_filename, \'saved into\', mypathlog)\n\nprint(\'\\nended..................... : \', end_time, \'\\n\')\n\n#Programme principal fin\n')
+def fn_graph_quantite_volume_global():
+    
+    from matplotlib.ticker import FormatStrFormatter, FuncFormatter
+    
+    mytitle1 = 'Quantité de fichiers'
+    mytitle2 = 'Volume (Go) des fichiers'
 
-
-# In[14]:
-
-
-df_sq_month = df_stats.groupby(['date_creation_y','date_creation_m']).agg({'filename':['count'], 'stats.st_size':['sum']})
-df_sq_month.head()
+    df_stot =  pd.DataFrame(df_stats.groupby('doctype').agg({'filename':['count'], 'stats.st_size':['sum']}).sum(), 
+              columns=['sums'])
+    
+    #fig = df_stot.plot(kind='bar',subplots=True,sharex=False,sharey=False,title=mytitle, figsize=(6,6))
+    fig1 = df_stot.iloc[:1,0].plot(kind='bar',subplots=False,sharex=False,sharey=False,title=mytitle1, figsize=(3,3))
+    plt.show()
+    fig2 = df_stot.iloc[1:2].plot(kind='bar',subplots=False,sharex=False,sharey=False,title=mytitle2, figsize=(3,3))
+    
+    #formatage des graduations
+    ax=plt.gca()
+    ax.yaxis.grid(True, which = 'both', color = 'gray', zorder = 0) 
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda x, pos:"%d" % (x/1000000000))) #pour exprimer en Go
+    
+    plt.show()
+    
 
 
 # In[8]:
 
 
-
-mytitle = 'Par mois - quantité et volume des fichiers'
-plt.figure(figsize=(15,5))
-df_sq_month = df_stats.groupby(['date_creation_y','date_creation_m']).agg({'filename':['count'], 'stats.st_size':['sum']})
-#df_sq_month.plot.bar()
-df_sq_month.plot(kind='bar',subplots=True,sharex=True,sharey=False,title=mytitle);
+fn_graph_quantite_volume_global()
 
 
-# In[ ]:
+# In[9]:
 
 
-mytitle = 'Par année et catégorie - quantité et volume des fichiers'
-plt.figure(figsize=(20,20))
-df_syc = df_stats.groupby(['date_creation_y','doctype']).agg({'filename':['count'], 'stats.st_size':['sum']})
-df_syc.plot(kind='bar',subplots=True,sharex=True,sharey=False,title=mytitle);
-
-
-# In[ ]:
-
-
-df_stats.head(1)
-
-
-# In[ ]:
-
-
-#plt.figure(figsize=(15,5))
-#df_sd_year = df_stats[['date_creation_y','orgnl_dirname']].groupby(df_stats['date_creation_y']).sum()
-#df_sd_year.plot.bar()
-#df_stats.groupby('date_creation_y').agg({'doctype':['count']}).plot()
-#df_sq_year = df_stats.groupby(['date_creation_y','date_creation_m']).agg({'extfile':['count']})
-
-#df_sc_year = df_stats.groupby(['date_creation_y','doctype']).agg({'filename':['count'],'stats.st_size':['sum']})
-#df_sc_year['filename','count'].plot()
-#df_sc_year['filename','count']
-
-#df_sd_year = df_stats[['date_creation_y','orgnl_dirname']].groupby(df_stats['date_creation_y']).sum()
-df_test = df_stats.groupby(['date_creation_y']).agg({'filename':['count'], 'stats.st_size':['sum']})#.rename(['a','b','c'])
-df_test.plot(kind='bar',subplots=True,sharex=True,sharey=False,title='Année');
-
-
-# In[ ]:
-
-
-#for i in range(df_stats.shape[0]):
-#    print(len(df_stats['orgnl_dirname'].iloc[i]))
+#Fonction graphiques
+def fn_graph_quantite_volume_par_an():
+    from matplotlib.ticker import FormatStrFormatter, FuncFormatter
     
-
-mylist = [len(df_stats['orgnl_dirname'].iloc[i]) for i in range(df_stats.shape[0])]
-
+    
+    mytitle = 'Par année - quantité et volume (Go) des fichiers'
+    #df_sq_year = df_stats.groupby(df_stats['date_creation_y']).size()
+    df_sq_year = df_stats.groupby('date_creation_y').agg({'filename':['count'], 'stats.st_size':['sum']})
+    #df_sq_year.plot.bar()
+    
+    fig, ax = df_sq_year.plot(kind='bar',subplots=True,sharex=False,sharey=False,title=mytitle, figsize=(10,6))
+    
+    #Graduations
+    #ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda x, pos:"%d" % (x/1000000000))) #pour exprimer en Go
+    #ax.yaxis.set_major_formatter(FuncFormatter(lambda x, p: format(int(x), ',')))  #pour un séparteur de milliers
+    
+    #tight (marges) pour l'espace entre les subplots
+    plt.tight_layout(pad=1, w_pad=1, h_pad=1)
+    
+    #titres des sublots (sous-parcelles)
+    #ax[0,1].set_title("t1") ???
+    #ax[0,2].set_title("t2") ???
+    
+    plt.legend(loc = 'upper left')
+    
+    plt.show()
     
 
 
+# In[10]:
+
+
+fn_graph_quantite_volume_par_an()
+
+
+# In[11]:
+
+
+def fn_graph_quantite_volume_par_mois():
+    
+    from matplotlib.ticker import FormatStrFormatter, FuncFormatter
+    import matplotlib.ticker as ticker
+    
+    mytitle = 'Par mois - quantité et volume (Go) des fichiers'
+    
+    df_sq_month = df_stats.groupby(['date_creation_y','date_creation_m']).agg({'filename':['count'], 'stats.st_size':['sum']})
+    
+
+    fig, ax = df_sq_month.plot(kind='bar',subplots=True,sharex=True,sharey=False,title=mytitle, figsize=(10,6))
+    
+    #Graduations
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(12)) #les ticks majeurs tous les 10 pour l'axe y (toutes les 10 (u)
+    ax.xaxis.set_minor_locator(ticker.MultipleLocator(1))  #les ticks mineurs tous les 2 pour l'axe y (toutes les 2 unités)
+    
+    
+    #ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda x, pos:"%d" % (x/1000000000))) #pour exprimer en Go
+    #ax.yaxis.set_major_formatter(FuncFormatter(lambda x, p: format(int(x), ',')))  #pour un séparteur de milliers
+    
+    #tight (marges) pour l'espace entre les subplots
+    plt.tight_layout(pad=2, w_pad=1, h_pad=1)
+    
+    #titres des sublots (sous-parcelles)
+    #ax[0,1].set_title("t1") ???
+    #ax[0,2].set_title("t2") ???
+    
+    plt.legend(loc = 'upper left')
+    
+    plt.show()
+
+
+# In[12]:
+
+
+fn_graph_quantite_volume_par_mois()
+
+
+# In[13]:
+
+
+def fn_graph_quantite_volume_par_type_de_fichier():
+    
+    from matplotlib.ticker import FormatStrFormatter, FuncFormatter
+    
+    mytitle = 'Par type de fichier (catégorie) - quantité et volume (Go) des fichiers'
+
+    df_sc = df_stats.groupby('doctype').agg({'filename':['count'], 'stats.st_size':['sum']})
+    
+    fig, ax = df_sc.plot(kind='bar',subplots=True,sharex=True,sharey=False,title=mytitle, figsize=(6,6), legend=False)
+
+    #ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda x, pos:"%d" % (x/1000000000))) #pour exprimer en Go
+    #ax.yaxis.set_major_formatter(FuncFormatter(lambda x, p: format(int(x), ',')))  #pour un séparteur de milliers
+    
+    #tight (marges) pour l'espace entre les subplots
+    plt.tight_layout(pad=2, w_pad=1, h_pad=1)
+    
+    plt.legend(loc = 'lower left')
+    
+    plt.show()
+
+
+# In[14]:
+
+
+fn_graph_quantite_volume_par_type_de_fichier()
+
+
+# In[15]:
+
+
+def fn_graph_quantite_volume_par_extension():
+    
+    from matplotlib.ticker import FuncFormatter
+
+    mytitle = 'Par extension de fichier (type) - quantité et volume (Go) des fichiers'
+    df_st = df_stats.groupby('extfile').agg({'filename':['count'], 'stats.st_size':['sum']})
+    
+    fig, ax = df_st.plot(kind='bar',subplots=True,sharex=True,sharey=False,title=mytitle,figsize=(15,5))
+    #graduation
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda x, pos:"%d" % (x/1000000000))) #pour exprimer en Go
+
+    plt.show()
+
+
+# In[243]:
+
+
+fn_graph_quantite_volume_par_extension()
+
+
+# In[16]:
+
+
+def fn_graph_quantite_volume_par_dossier():
+    
+    from matplotlib.ticker import FuncFormatter
+
+    mytitle = 'Par dossier [à modifier pour avoir le dossier initial de recherche] - quantité et volume (Go) par répertoire'
+    plt.figure(figsize=(15,5))
+    df_st = df_stats.groupby('orgnl_dirname_str').agg({'filename':['count'], 'stats.st_size':['sum']})
+    
+    fig, ax = df_st.plot(kind='bar',subplots=True,sharex=True,sharey=False,title=mytitle,figsize=(15,5))
+    
+    #graduation
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda x, pos:"%d" % (x/1000000000))) #pour exprimer en Go    
+    plt.show()
+
+
+# In[258]:
+
+
+fn_graph_quantite_volume_par_dossier()
+
+
+# In[17]:
+
+
+# Croisements
+    
+def fn_graph_quantite_volume_par_an_et_catégorie():
+    
+    mytitle = 'Par année et catégorie - quantité et volume des fichiers'
+    df_syc = df_stats.groupby(['date_creation_y','doctype']).agg({'filename':['count'], 'stats.st_size':['sum']})
+    df_syc.plot(kind='bar',subplots=True,sharex=True,sharey=False,title=mytitle,figsize=(15,5))
+    plt.show()
+
+
+# In[260]:
+
+
+fn_graph_quantite_volume_par_an_et_catégorie()
+
+
+# In[117]:
+
+
+#dataframe des doublons
+
+def fnph_df_doublons(parm_collection):
+    """
+    Fonction de calcul de statistiques sur les doublons et graphiques
+    """
+    #-------------------
+    #Requête aggrégation
+    var_group = {"$group": { "_id"    : {"filename_grpd": "$filename", "extfile_grpd":"$extfile", "doctype_grpd":"$doctype"},
+                       "listeIds_size": {"$addToSet": {"id":"$_id","size":"$stats.st_size"}},
+                       "list_sizes"   : {"$addToSet": "$stats.st_size"},                   
+                       "my_count"     : {"$sum":1}                               
+                     } }          
+    cursor_doublons = parm_collection.aggregate( [ var_group ], allowDiskUse=True  )
+    #-------------------
+    #mise en liste
+    my_list_cursor = list(cursor_doublons)
+    #mise en dataframe
+    df_result = pd.DataFrame(my_list_cursor)
+
+    #----------------------------------------------------------------------------
+    #Suppression de la ligne '_id'={} qui correspond au document "eventgnls"
+    #----------------------------------------------------------------------------
+    df_result = df.drop(df_result[df_result['_id']=={}].index)
+    
+    #----------------------------------------------------------------------------
+    #Calcul du nombre de sizes distinctes (y.c. non renseignées)
+    #----------------------------------------------------------------------------
+    print('--- Calcul du nombre de sizes distinctes à refaire --- ')
+    df_result['nb_distinct_sizes']=df_result.apply(lambda x: len(x['list_sizes']), axis=1)
+    #A REFAIRE !!!
+    #A REFAIRE !!! : list_sizes est déduit de la liste des sizes récupérées. Hors, si size n'est pas renseignée, elle
+    #A REFAIRE !!!   n'apparait pas dans la liste. Il faut donc reconstituer le nombre à partir des sizes dans liste_ids_size
+    #A REFAIRE !!!
+    #--------------------------------
+    # dégroupement de _id en trois colonnes (pour avoir _id, ext, type)
+    #--------------------------------
+    df_result['filename_grpd']=df_result.apply(lambda x: x['_id']['filename_grpd'], axis=1)
+    df_result['extfile_grpd'] =df_result.apply(lambda x: x['_id']['extfile_grpd'], axis=1)
+    df_result['doctype_grpd'] =df_result.apply(lambda x: x['_id']['doctype_grpd'], axis=1)
+
+    
+    return(df_result)
+
+
 # In[ ]:
 
 
-df_stats['orgnl_dirname_str']=df_stats['orgnl_dirname'].apply(lambda x: x[0])
+#REMARQUE : A VOIR !!!!!
+# https://stackoverflow.com/questions/7571635/fastest-way-to-check-if-a-value-exists-in-a-list
 
 
-# In[ ]:
+# In[118]:
 
 
-df_stats
+#def fnph_graph_doublons(parm_collection):
+# EN CONSTRUTION ......................
+# EN CONSTRUTION ......................
+# EN CONSTRUTION ......................
+
+#pour test
+client = pymongo.MongoClient('localhost',27017)
+mydb = client["prjph_catalogue"]
+mydb_name = "prjph_catalogue"
+mycollection_name = "test_documents"          #TEST
+#mycollection_name = "images_videos"           #PREPROD
+mycollection = mydb[mycollection_name]
+
+#appel dataframe des doublons
+df_test = fnph_df_doublons(mycollection).copy()
+
+#split ici car un peu long à refaire
+print('done')
 
 
-# In[ ]:
+# In[125]:
 
 
-#essai de transformtion de format de date
-df=df_stats.copy()
-df.date_creation = pd.to_datetime(df['stats.st_mtime'], unit='s')
-df.head()
+pd.set_option('display.max_columns', None)
+pd.set_option('display.max_colwidth', None)
+df_test[df_test.my_count>1]
 
 
-# In[ ]:
+# In[75]:
 
 
-#tz_localize...ne marche pas ?
-#df=df_stats.copy()
-#df.date_creation = df['stats.st_mtime'].dt.tz_localize('UTC')
+pd.set_option('display.max_columns', None)
+pd.set_option('display.max_colwidth', None)
 
 
-# In[ ]:
+# In[27]:
 
 
-df_stats#['filename'].sort_values()
+#test pour récupérer la liste des sizes
 
+df=df_test.copy()
+#pour chaque ligne, on va lire la liste ids, size et récupérer les sizes pour les stocker dans la colone list_sizes
+for i in range(df.shape[0]):
+    
+    
+    #lecture de la liste ids_size et mise en liste
+    mylist=df.listeIds_size[i]
+
+    #récupération des sizes sous forme de liste
+    #try:
+    #    df['list_sizes'].iloc[i] = [mylist[j]['size'] for j in range(len(mylist))]
+    #except:
+    #    print(i, 'erreur')
+        
+    #récupération des sizes sous forme de liste - méthode 2
+    if 'size' in mylist[j]: #teste l'existence de la clé 'size' dans le dico
+        df['list_sizes'].iloc[i] = [mylist[j]['size'] for j in range(len(mylist))]
+    else:
+        print(i, 'erreur')        
+df
+
+
+# In[29]:
+
+
+#split ici car un peu long à refaire
+print("il y a 'AU MOINS'", df_test.shape[0], "filename uniques")
+print("Peut-être plus si l'on compte les 'faux doublons'.")
+print("(nb total de documents ", df_test.my_count.sum(),"- à vérifier avec nb_tot...)\n")
+#docs avec doublons
+mask=df_test.my_count!=1
+df_avec_doublons=df_test[mask]
+#df_avec_doublons.describe()
+
+print('!!! Calcul du nombre de sizes distinctes à refaire - df_test.shape (filenames uniques)=', df_test.shape)
+
+print("\ndont : filenames avec doublons (ou 'faux doublons'):",df_avec_doublons.shape)
+
+df_avec_doublons.head()
+
+
+# In[23]:
+
+
+
+print(df_avec_doublons.shape[0], "filenames avec doublons")
+print("Le cumul de my_count donne", df_avec_doublons.my_count.sum(), "documents concernés")
+
+
+# In[24]:
+
+
+#filenames en doublons mais avec des tailles différentes.
+mask1=df_avec_doublons.nb_distinct_sizes!=1
+print(df_avec_doublons[mask1].shape)
+
+print("il y a donc au moins 12261 faux doublons ")
+
+
+# In[25]:
+
+
+#filenames en doublons : 2 fichiers exactements de taille différentes.
+mask4a=df_avec_doublons.nb_distinct_sizes==df_avec_doublons.my_count
+#mask4b=df_avec_doublons.my_count!=2
+mask4=mask4a #& mask4b
+print(df_avec_doublons[mask4].shape)
+
+print("Ces 2014 éléments parmi les 12261 sont des faux doublons")
+print("il reste donc au moins", 12261-2014, "faux doublons")
+
+
+# In[26]:
+
+
+print("12261/67492=", 100*12261/67492, "=> c'est le pourcentage de 'doublons' qui sont en fait des faux doublons")
+print("=> voir la nécessité d'inclure la taille dans la recherche de doublons")
+
+
+# # Traitement principal
+
+# In[261]:
+
+
+get_ipython().run_cell_magic('time', '', '#Programme principal\n\n#----------------------------------------------------------------------------------------------------------\n#description :\n\n# Préparation\n# - Accès à la bd mongdodb\n# - Récupération des données dans un df (par découpage pour gérer vitesse vs utilisation mémoire)\n\n# Obtention des statistiques\n\n# Présentation des statistiques\n#----------------------------------------------------------------------------------------------------------\n\n\n#Paramètres utilisateurs***********************************************************************************\n#Libellé traitement 1<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\nmontitre_traitement="Stats - Premier traitement"\n#Répertoire de sauvegarde de l\'historique du traitement\nparm_df_log_rep = r\'C:\\Users\\LENOVO\\Documents\\Projets\\Prj_photos\\Prjph_log\'\n#Paramètres de connexion\n#------ Base  -------------------*\n#connection au serveur mongodb 27017, base test\nclient = pymongo.MongoClient(\'localhost\',27017)\nmydb = client["prjph_catalogue"]\nmydb_name = "prjph_catalogue"\nmychunksize = 5000                #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n#Collection                        2<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n#mycollection_name = "test_documents"          #TEST\nmycollection_name = "images_videos"           #PREPROD\n#------ ---------- -------------------*\nmycollection = mydb[mycollection_name]\n#Paramètres utilisateurs***********************************************************************************\n\n#----------------\n#DEBUT TRAITEMENT\n#----------------\n\n#----------------\n#initialisations\n#----------------\n\n#Compteurs\n\n#init du df historique des répertoires traités\ndf_log=pd.DataFrame(columns=[\'unique_id\',\'time\',\'rep_explored\',\'nb_sous_rep\', \'nb_of_files\', \'nb_of_files_cumul\', \'comment\'])          #df contenant la liste des répertoires traités\n\n#init du df historique des répertoires traités\ndf_stats=pd.DataFrame()          #NB : les colonnes du df seront définies par l\'appel à fnph_read_mongodb\n\n#global_unique_id : Variable de valeur unique pour rsgner unique_id lors des différents appels\nstrtimestamp = str(datetime.timestamp(datetime.now()))\nglobal_unique_id = strtimestamp\nprint(\'\\n           global_unique_id:\', global_unique_id,\'\\n\')\n\n#------------\n# TRAITEMENT\n#------------\n\n#==========*Entête*============\nstart_time=datetime.now()\nprint(\'start..................... : \', start_time, \'\\n\')\n\nprint("\\n**** Collection            :", mycollection_name, "****\\n")\nprint("****")\nprint("****")\nprint("****")\nprint("****")\nprint("****")\n\n#==========*Récupération des données*============\n\n#----Volume de la base (nombre de documents et cumul de la taille): \nvol_base = fnph_clc_nb_st_size_tot(mycollection)\n\n#----Stockage en dataframe des données utiles\n\n#"filename"         :1, #nom du fichier\n#"exif.36865"       :1, #exif date de création \n#"exif.36866"       :1, #exif date de mise en data par l\'appareil (~date de création?)\n#"stats.st_mtime"   :1, #date de dernière modification (~date de création)\n#"stats.st_size"    :1, #taille en octets   \n#"orgnl_dirname"    :1, #nom du répertoire de stockage (au moment de la création du catalogue)\n#"doctype"          :1, #catégorie de fichier\n#"extfile"          :1, #extension du fichier (type)\n#"vid_ppty.duration":1, #durée (si vidéo)\n#"exif.271"         :1, #nom du fabriquant\n#"exif.272"         :1  #nom du modèle\n\n#myquery = { [ QueryMatch, QueryProject ] }\n\n#   match--> tous les documents (hors eventsgnls)\n#myquery_match      =  {"eventgnls":{"$eq":null} } }, #le null ne convient pas à Python\n#myquery_match      =  {"eventgnls":""} #le null ne convient pas à Python\n#myquery_match      =  {"extfile":".jpg"}\nmyquery_match      =  {}\n\n#   projection-->\nmyquery_projection =  { "_id"              :0,\n                        "filename"         :1, \n                        "stats.st_size"    :1, \n                        "stats.st_mtime"   :1, \n                        "exif.36865"       :1, \n                        "exif.36866"       :1, \n                        "extfile"          :1, \n                        "doctype"          :1, \n                        "orgnl_dirname"    :1, \n                        "vid_ppty.duration":1, \n                        "exif.271"         :1, \n                        "exif.272"         :1  \n                      }\n\ndeb=datetime.now()\n#print(\'debug-->avant read_mongodb :\', deb)\n\n#=======Requête de lecture de mongodb et récupération des données au format json normalized si souhaité================\ndf_stats = fnph_read_mongodb(mydb_name, \n                             mycollection_name, \n                             myquery_match, \n                             myquery_projection, \n                             parm_chunksize = mychunksize, \n                             parm_no_id = False,\n                             parm_json_normalized = True)\n#=======Requête de lecture de mongodb==================================================================================\n\n\n#--------------------------------------------------------\n# CALCUL ET REPRESENTATION GRAPHIQUE DES STATISTIQUES\n#--------------------------------------------------------\n\n#Préparation du df (df_stats) -------------\n#Ajout de colonnes\n\n#Conversion de st_mtime (timestamp) en date claire\ndf_stats[\'date_creation\'    ] = df_stats[\'stats.st_mtime\'].apply(lambda x: time.strftime(\'%Y%m%d\', time.localtime(x))  if pd.notnull(x) else \'\')\ndf_stats[\'date_creation_y\'  ] = df_stats[\'stats.st_mtime\'].apply(lambda x: time.strftime(\'%Y\'    , time.localtime(x))  if pd.notnull(x) else \'\')\ndf_stats[\'date_creation_m\'  ] = df_stats[\'stats.st_mtime\'].apply(lambda x: time.strftime(\'%m\'    , time.localtime(x))  if pd.notnull(x) else \'\')\ndf_stats[\'date_creation_d\'  ] = df_stats[\'stats.st_mtime\'].apply(lambda x: time.strftime(\'%d\'    , time.localtime(x))  if pd.notnull(x) else \'\')\ndf_stats[\'date_creation_hms\'] = df_stats[\'stats.st_mtime\'].apply(lambda x: time.strftime(\'%H%M%S\', time.localtime(x))  if pd.notnull(x) else \'\')\n\n#Conversion de orgnl_dirname (liste) en string (la liste ne contient qu\'un seul élément)\ndf_stats[\'orgnl_dirname_str\'] = df_stats[\'orgnl_dirname\'].apply(lambda x: x[0])\n\n\n#--------------------\n# GRAPHIQUES\n#--------------------\n\n# - Quantités et volumes\nfn_graph_quantite_volume_par_an()\n\nfn_graph_quantite_volume_par_mois()\n\nfn_graph_quantite_volume_par_type_de_fichier()\n\nfn_graph_quantite_volume_par_extension()\n\n#fn_graph_quantite_volume_par_dossier()\n\n# Croisements\nfn_graph_quantite_volume_par_an_et_catégorie()\n\n\n\n\n# --------------------\n# FIN DE TRAITEMENT\n# --------------------\nfin=datetime.now()\n#print(\'debug-->après read_mongodb :\', fin, "durée :", fin-deb)\n    \n#ajout de la ligne start dans df_log \n#rmq : nb_sous_rep et nb_of_files sont les documents à la racine du répertoire, pas le total\ndf_log=df_log.append({\'unique_id\'   :global_unique_id,\n                      \'time\'        :str(datetime.now()),\n                      \'rep_explored\':" <--- début de traitement - <"+montitre_traitement+">-->",\n                      \'comment\'     :"start "}, ignore_index=True)\n\n\n# ==============STATS DU TRAITEMENT===================\nmsg    = [\'\']*12\nend_time=datetime.now()\nmsg[0] = \'\\ndone----------------------------------------\'\nmsg[1] = \'df_stats.shape=\' + str(df_stats.shape)\nmsg[2] = \'\'\nmsg[3] = \'\'\nmsg[4] = \'\'\n#msg[5] = \'taille ttle des fichiers en base  : \' + str(var_tailletot)\n#msg[6] = \'nombre ttl de  documents en base  : \' + str(var_nbtot)\nmsg[7] = \'Durée du traitement               : \' + str(end_time - start_time)\nmsg[8] = \'\'\nmsg[9] = \'\'\nmsg[10] = \'done----------------------------------------\'\nfor i in range(len(msg)):\n    if msg[i]!=\'\':\n        print(msg[i])\n\n        \n#Stockage de la fin de traitement dans l\'historique df_log.\nfor i in range(len(msg)):\n    if msg[i]!="":\n        df_log=df_log.append({\'unique_id\'   : global_unique_id,\n                              \'time\'        : str(end_time),\n                              \'comment\'     : msg[i]}, ignore_index=True)\n\n#Sauvegarde du df_log - nom complété de la collection et nom du répertoire exploré\ndnow = datetime.now()\nstrtimestamp = str(datetime.timestamp(dnow)).replace(\'.\',\'_\')\nmypathlog=r\'C:\\Users\\LENOVO\\Documents\\Projets\\Prj_photos\\Prjph_log\'\n\ndf_log_filename= \'prjph_df_log_stats__\' +                                   \\\n                    global_unique_id.replace(\'.\',\'_\') + "__" +        \\\n                    mycollection_name + "__" +                        \\\n                 \'.csv\' #référencement avec global_unique_id utilisé pour référencer les documents dans la base.\ndf_log.to_csv(os.path.join(mypathlog,df_log_filename), sep=\'\\t\')\nprint(df_log_filename, \'saved into\', mypathlog)\n\nprint(\'\\nended..................... : \', end_time, \'\\n\')\n\n#Programme principal fin\n')
+
+
+# # Tests
 
 # In[ ]:
 
@@ -357,8 +656,6 @@ mask=(df_stats['stats.st_mtime']).isna()==False
 df_stats[mask][['stats.st_mtime','date_creation','date_creation_y','date_creation_m','date_creation_d',
                'date_creation_hms']]
 
-
-# # Tests
 
 # In[ ]:
 
@@ -517,22 +814,4 @@ print(date.fromtimestamp(dtest["st_mtime"])) #most recent content modification (
 
 ##most recent content access
 #print(date.fromtimestamp(dtest["st_atime"]))
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
 
