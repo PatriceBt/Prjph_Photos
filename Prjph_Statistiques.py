@@ -65,7 +65,7 @@
 
 # # Imports
 
-# In[1]:
+# In[227]:
 
 
 import os
@@ -79,6 +79,9 @@ from pymongo import MongoClient
 from pandas import json_normalize
 
 from matplotlib import pyplot as plt
+import matplotlib.ticker as ticker
+from matplotlib.ticker import FormatStrFormatter, FuncFormatter
+import seaborn as sns
 
 import time
 
@@ -89,7 +92,7 @@ import time
 
 # ### A mettre en module ?
 
-# In[2]:
+# In[11]:
 
 
 #Fonction de calcul du nombre et de la taille totale des fichiers catalgués dans la base
@@ -123,7 +126,7 @@ def fnph_clc_nb_st_size_tot(parm_collection):
 
 # ### Nouvelles fonctions
 
-# In[3]:
+# In[12]:
 
 
 #import pandas as pd
@@ -142,7 +145,7 @@ def _connect_mongo(host, port, username, password, db):
     return conn[db]
 
 
-# In[4]:
+# In[13]:
 
 
 def fnph_read_mongodb(
@@ -220,7 +223,7 @@ def fnph_read_mongodb(
     return df_result
 
 
-# In[5]:
+# In[14]:
 
 
 get_ipython().run_cell_magic('time', '', '#Test fnph_read_mongodb()\n\n\nimport datetime\nfrom datetime import datetime\n\n#client = pymongo.MongoClient(\'localhost\',27017)\n#mydb = client["prjph_catalogue"]\ntest1mydb_name = "prjph_catalogue"\ntest1mycollection_name = "test_documents"          #TEST\n#mycollection_name = "images_videos"           #PREPROD\n#------ ---------- -------------------*\n#mycollection = mydb[mycollection_name]\n\n\ntest1mysize  = 1000\n\ntest1myquery_match      =  {"extfile":".mov"} #le null ne convient pas à Python\n#test1myquery_match      =  {} #le null ne convient pas à Python\n#   projection-->\ntest1myquery_projection =  {    "_id"              :1,\n                                "filename"         :1, \n                                "exif.36865"       :1, \n                                "exif.36866"       :1, \n                                "stats.st_mtime"   :1, \n                                "stats.st_size"    :1, \n                                "orgnl_dirname"    :1, \n                                "doctype"          :1, \n                                "extfile"          :1, \n                                "vid_ppty.duration":1, \n                                "exif.271"         :1, \n                                "exif.272"         :1  \n                           }\n#testmyquery_match={}\n#testmyquery_projection={}\n\n#Traitement\nmydate=datetime.now()\nmychunksize=test1mysize\nstart=datetime.now()\ndf_test1    = pd.DataFrame()\ndf_test1    = fnph_read_mongodb(test1mydb_name, \n                             test1mycollection_name, \n                             parm_query_match       = test1myquery_match, \n                             parm_query_projection  = test1myquery_projection,\n                             parm_chunksize=test1mysize, \n                             parm_no_id=False,\n                             parm_json_normalized = True)\nend  = datetime.now()\ntimelaps=end-start\nprint(\'durée :\', timelaps)\nprint(\'df_test1.shape =\', df_test1.shape)')
@@ -228,7 +231,7 @@ get_ipython().run_cell_magic('time', '', '#Test fnph_read_mongodb()\n\n\nimport 
 
 # ## Fonction graphiques
 
-# In[6]:
+# In[15]:
 
 
 df_stot =  pd.DataFrame(df_stats.groupby('doctype').agg({'filename':['count'], 'stats.st_size':['sum']}).sum(), 
@@ -238,7 +241,7 @@ df_stot.iloc[1:2]
 #df_stot.iloc[:1]
 
 
-# In[7]:
+# In[16]:
 
 
 def fn_graph_quantite_volume_global():
@@ -265,13 +268,13 @@ def fn_graph_quantite_volume_global():
     
 
 
-# In[8]:
+# In[17]:
 
 
 fn_graph_quantite_volume_global()
 
 
-# In[9]:
+# In[18]:
 
 
 #Fonction graphiques
@@ -304,13 +307,13 @@ def fn_graph_quantite_volume_par_an():
     
 
 
-# In[10]:
+# In[19]:
 
 
 fn_graph_quantite_volume_par_an()
 
 
-# In[11]:
+# In[ ]:
 
 
 def fn_graph_quantite_volume_par_mois():
@@ -346,13 +349,13 @@ def fn_graph_quantite_volume_par_mois():
     plt.show()
 
 
-# In[12]:
+# In[ ]:
 
 
 fn_graph_quantite_volume_par_mois()
 
 
-# In[13]:
+# In[ ]:
 
 
 def fn_graph_quantite_volume_par_type_de_fichier():
@@ -377,13 +380,13 @@ def fn_graph_quantite_volume_par_type_de_fichier():
     plt.show()
 
 
-# In[14]:
+# In[ ]:
 
 
 fn_graph_quantite_volume_par_type_de_fichier()
 
 
-# In[15]:
+# In[ ]:
 
 
 def fn_graph_quantite_volume_par_extension():
@@ -400,13 +403,13 @@ def fn_graph_quantite_volume_par_extension():
     plt.show()
 
 
-# In[243]:
+# In[ ]:
 
 
 fn_graph_quantite_volume_par_extension()
 
 
-# In[16]:
+# In[ ]:
 
 
 def fn_graph_quantite_volume_par_dossier():
@@ -430,10 +433,10 @@ def fn_graph_quantite_volume_par_dossier():
 fn_graph_quantite_volume_par_dossier()
 
 
-# In[17]:
+# In[187]:
 
 
-# Croisements
+# Croisements sur df_stats
     
 def fn_graph_quantite_volume_par_an_et_catégorie():
     
@@ -441,29 +444,34 @@ def fn_graph_quantite_volume_par_an_et_catégorie():
     df_syc = df_stats.groupby(['date_creation_y','doctype']).agg({'filename':['count'], 'stats.st_size':['sum']})
     df_syc.plot(kind='bar',subplots=True,sharex=True,sharey=False,title=mytitle,figsize=(15,5))
     plt.show()
+    
 
 
-# In[260]:
+# In[188]:
 
 
 fn_graph_quantite_volume_par_an_et_catégorie()
 
 
-# In[117]:
+# In[208]:
 
 
 #dataframe des doublons
 
 def fnph_df_doublons(parm_collection):
+    
+    import tqdm
     """
     Fonction de calcul de statistiques sur les doublons et graphiques
+    retourne le dataframe des noms de fichiers uniques du catalogue (regroupement par nom de fichier)
     """
     #-------------------
     #Requête aggrégation
     var_group = {"$group": { "_id"    : {"filename_grpd": "$filename", "extfile_grpd":"$extfile", "doctype_grpd":"$doctype"},
-                       "listeIds_size": {"$addToSet": {"id":"$_id","size":"$stats.st_size"}},
+                       "listeIds_size": {"$addToSet": {"id":"$_id","size":"$stats.st_size","dbl":"$doublon.est_doublon_de"}},
                        "list_sizes"   : {"$addToSet": "$stats.st_size"},                   
-                       "my_count"     : {"$sum":1}                               
+                       "nb_doc"       : {"$sum":1},
+                       "tot_size"     : {"$sum":"$stats.st_size"}
                      } }          
     cursor_doublons = parm_collection.aggregate( [ var_group ], allowDiskUse=True  )
     #-------------------
@@ -475,17 +483,16 @@ def fnph_df_doublons(parm_collection):
     #----------------------------------------------------------------------------
     #Suppression de la ligne '_id'={} qui correspond au document "eventgnls"
     #----------------------------------------------------------------------------
-    df_result = df.drop(df_result[df_result['_id']=={}].index)
+    print(df_result[df_result['_id']=={}].index)
+    df_result = df_result.drop(df_result[df_result['_id']=={}].index)
     
     #----------------------------------------------------------------------------
     #Calcul du nombre de sizes distinctes (y.c. non renseignées)
     #----------------------------------------------------------------------------
-    print('--- Calcul du nombre de sizes distinctes à refaire --- ')
     df_result['nb_distinct_sizes']=df_result.apply(lambda x: len(x['list_sizes']), axis=1)
-    #A REFAIRE !!!
-    #A REFAIRE !!! : list_sizes est déduit de la liste des sizes récupérées. Hors, si size n'est pas renseignée, elle
-    #A REFAIRE !!!   n'apparait pas dans la liste. Il faut donc reconstituer le nombre à partir des sizes dans liste_ids_size
-    #A REFAIRE !!!
+    #ATTENTION !!! : list_sizes est déduit de la liste des sizes récupérées. Hors, si size n'est pas renseignée, elle
+    #ATTENTION !!!   n'apparait pas dans la liste. Le nombre indiqué ne tient compte que des size renseignées.
+    
     #--------------------------------
     # dégroupement de _id en trois colonnes (pour avoir _id, ext, type)
     #--------------------------------
@@ -493,100 +500,58 @@ def fnph_df_doublons(parm_collection):
     df_result['extfile_grpd'] =df_result.apply(lambda x: x['_id']['extfile_grpd'], axis=1)
     df_result['doctype_grpd'] =df_result.apply(lambda x: x['_id']['doctype_grpd'], axis=1)
 
+    #------------------------------------------------
+    # Indicateur de présence de size non renseignée
+    #------------------------------------------------
+    df_result['flag_size_absente']=False
+
+    #pour chaque ligne, on lit la liste ids, size et récupérer les sizes pour les stocker dans la colone list_sizes
+    for i in tqdm.tqdm(range(df_result.shape[0])):
+    #for i in range(df_result.shape[0]):
     
+        #listeIds_size mise sous forme de liste
+        mylist=df_result.listeIds_size.iloc[i]   #on se positionne sur la ième valeur (<> loc[i]=index de valeur i)
+        
+        #test une absence de 'size' et valorisation du flag = True le cas échéant
+        for j in range(len(mylist)):
+            if not ('size' in mylist[j]):
+                #print('size absente pour ', i,j)
+                df_result.flag_size_absente.iloc[i]=True
+            
+            
     return(df_result)
 
 
-# In[ ]:
-
-
-#REMARQUE : A VOIR !!!!!
-# https://stackoverflow.com/questions/7571635/fastest-way-to-check-if-a-value-exists-in-a-list
-
-
-# In[118]:
+# In[238]:
 
 
 #def fnph_graph_doublons(parm_collection):
-# EN CONSTRUTION ......................
-# EN CONSTRUTION ......................
-# EN CONSTRUTION ......................
 
 #pour test
 client = pymongo.MongoClient('localhost',27017)
 mydb = client["prjph_catalogue"]
 mydb_name = "prjph_catalogue"
-mycollection_name = "test_documents"          #TEST
-#mycollection_name = "images_videos"           #PREPROD
+#----------------------------------------
+#mycollection_name = "test_documents"          #TEST
+mycollection_name = "images_videos"           #PREPROD
+#----------------------------------------
 mycollection = mydb[mycollection_name]
 
 #appel dataframe des doublons
-df_test = fnph_df_doublons(mycollection).copy()
+#df_test = fnph_df_doublons(mycollection).copy()
+df_par_fichier = fnph_df_doublons(mycollection).copy()
 
 #split ici car un peu long à refaire
-print('done')
+print('done', df_par_fichier.shape)
 
 
-# In[125]:
+# In[239]:
 
 
-pd.set_option('display.max_columns', None)
-pd.set_option('display.max_colwidth', None)
-df_test[df_test.my_count>1]
+df_doublons.head(2)
 
 
-# In[75]:
-
-
-pd.set_option('display.max_columns', None)
-pd.set_option('display.max_colwidth', None)
-
-
-# In[27]:
-
-
-#test pour récupérer la liste des sizes
-
-df=df_test.copy()
-#pour chaque ligne, on va lire la liste ids, size et récupérer les sizes pour les stocker dans la colone list_sizes
-for i in range(df.shape[0]):
-    
-    
-    #lecture de la liste ids_size et mise en liste
-    mylist=df.listeIds_size[i]
-
-    #récupération des sizes sous forme de liste
-    #try:
-    #    df['list_sizes'].iloc[i] = [mylist[j]['size'] for j in range(len(mylist))]
-    #except:
-    #    print(i, 'erreur')
-        
-    #récupération des sizes sous forme de liste - méthode 2
-    if 'size' in mylist[j]: #teste l'existence de la clé 'size' dans le dico
-        df['list_sizes'].iloc[i] = [mylist[j]['size'] for j in range(len(mylist))]
-    else:
-        print(i, 'erreur')        
-df
-
-
-# In[29]:
-
-
-#split ici car un peu long à refaire
-print("il y a 'AU MOINS'", df_test.shape[0], "filename uniques")
-print("Peut-être plus si l'on compte les 'faux doublons'.")
-print("(nb total de documents ", df_test.my_count.sum(),"- à vérifier avec nb_tot...)\n")
-#docs avec doublons
-mask=df_test.my_count!=1
-df_avec_doublons=df_test[mask]
-#df_avec_doublons.describe()
-
-print('!!! Calcul du nombre de sizes distinctes à refaire - df_test.shape (filenames uniques)=', df_test.shape)
-
-print("\ndont : filenames avec doublons (ou 'faux doublons'):",df_avec_doublons.shape)
-
-df_avec_doublons.head()
-
+# ### test de calculs divers
 
 # In[23]:
 
@@ -594,6 +559,236 @@ df_avec_doublons.head()
 
 print(df_avec_doublons.shape[0], "filenames avec doublons")
 print("Le cumul de my_count donne", df_avec_doublons.my_count.sum(), "documents concernés")
+
+
+# In[253]:
+
+
+
+
+
+# In[343]:
+
+
+#CALCUL DES STATISTIQUES SUR DOUBLONS
+
+#Mettre tout ça en def (cf. appel pour doublons avec size absente plus bas) :
+
+#import matplotlib.ticker as ticker
+from matplotlib.ticker import FormatStrFormatter, FuncFormatter
+
+#Récupérer le nombre total de fichiers (cf. traitement principal)
+nb_tot_fichiers  = df_par_fichier.shape[0]
+
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+#I-ETUDE SUR L'ENSEMBLE DES FICHIERS AVEC DOUBLONS (avec ou sans occurrence n'ayant pas de 'size')
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+
+#on restreint les données aux fichiers avec doublons (xples occurrences : nb_doc>1 ou (nb_doc=1 et size absente))
+mask1  = df_par_fichier.nb_doc>1
+mask2 = (df_par_fichier.nb_doc==1) & (df_par_fichier.flag_size_absente==True)
+df_dbls = df_par_fichier[mask1|mask2]
+
+
+#Les calculs à mettre en def :
+
+#-------------------------------------------------------------------------------
+#0) nombre de fichiers uniques total (avec ou sans doublons)
+#-------------------------------------------------------------------------------
+print("Il y a {} fichiers uniques avec ou sans doublons.".format(nb_tot_fichiers))
+
+#-------------------------------------------------------------------------------
+#1a) nombre de fichiers avec doublons
+#-------------------------------------------------------------------------------
+nb_fic_avec_dbls = df_dbls.shape[0]
+print("Il y a {} fichiers avec de multiples occurrences.".format(nb_fic_avec_dbls))
+
+#-------------------------------------------------------------------------------
+#1b) nombre de fichiers sans doublons
+#-------------------------------------------------------------------------------
+nb_fic_sans_dbls = df_par_fichier[ (df_par_fichier.nb_doc==1) & (df_par_fichier.flag_size_absente==False) ].shape[0]
+print("Il y a {} fichiers sans doublons.".format(nb_fic_sans_dbls))
+
+#-------------------------------------------------------------------------------
+#2b) dont nombre de fichiers avec doublons et un des doublons avec 'size' non renseignée
+#-------------------------------------------------------------------------------
+print("Il y a {} fichiers avec de multiples occurrences dont une avec size non renseignée.".       format(df_dbls[df_dbls.flag_size_absente==True].shape[0]))
+
+#-------------------------------------------------------------------------------
+#2) nombre de fichiers en doublons, part sur le total de fichiers uniques
+#-------------------------------------------------------------------------------
+print("La part de fichiers avec doublons sur le total de fichiers = {}".format(100*nb_fic_avec_dbls/nb_tot_fichiers))
+
+
+#-------------------------------------------------------------------------------
+#3a) nombre de fichiers 'doublons' par fichier avec doublons : moyenne
+#-------------------------------------------------------------------------------
+print("nombre de fichiers avec 'doublons' par fichier avec doublons : moyenne = ",df_dbls.nb_doc.mean())
+
+#-------------------------------------------------------------------------------
+#3b) nombre de fichiers 'doublons' par fichier avec doublons : distribution
+#-------------------------------------------------------------------------------
+plt.figure(figsize=(15,5))
+nb_bins = df_dbls.nb_doc.max() - df_dbls.nb_doc.min()
+#ax1 = sns.distplot(df_dbls[df_dbls.nb_doc>1].nb_doc, bins=nb_bins )   #nb : 'ax1 =' is not necessary here 
+ax1 = sns.distplot(df_dbls.nb_doc, bins=nb_bins )   #nb : 'ax1 =' is not necessary here 
+#Graduations
+ax1.xaxis.set_major_locator(ticker.MultipleLocator(25))  #les ticks majeurs pour les années (toutes les 4 graduations(u))
+ax1.xaxis.set_minor_locator(ticker.MultipleLocator(1))  #les ticks mineurs pour les trimestres (à chaque graduation (u))
+#ax1.yaxis.set_major_locator(ticker.MultipleLocator(0.5))  
+#ax1.yaxis.set_minor_locator(ticker.MultipleLocator(0.1))  
+ax1.yaxis.set_major_formatter(FuncFormatter(lambda x, pos:"%d" % (x*nb_fic_avec_dbls))) #pour exprimer en nb
+#ax1.yaxis.set_major_formatter(FuncFormatter(lambda x, p: format(int(x), ',')))  #pour un séparteur de milliers
+#ax1.yaxis.set_major_formatter(FormatStrFormatter('%d'))
+#-------------------------------
+#commentaire sur le résultat 3b)
+
+
+# Remarque : on pourra utiliser hue pour distinguer selon flag_size_absente (avec mpl car sns.distplot non)
+# 
+# 1) Peu de fichiers avec size non renseignée => Voir lesquels sont concernés
+# 
+# => **Hypothèse H1 : ils concernent des fichiers qui ne sont pas des photos, plutôt des fichiers windows.**
+# 
+# => Si c'est le cas, on pourra les mettre de côté.
+# 
+# 
+# 2) La moitié des fichiers en doublon sont ceux avec 2 documents (voir la copie d'un dd ou les thumbnails d'un répertoire)
+# 
+# => **Hypothèse H2 : ce sont de vrais doublons. On pourra garder un seul élément.**
+# 
+# 3) Une moyenne de 4+ documents par fichier doublon, ce qui explique les 300000+ documents de la base.
+# 
+# => **Hypothèse H3 : ce ne sont pas de vrais doublons. Il va falloir trouver un découpage plus fin.**
+# 
+# 
+
+# In[425]:
+
+
+#-------------------------------------------------------------------------------
+#4a) Quels sont les types de fichiers avec doublons => nombre de fichiers en doublon par type de fichier
+#-------------------------------------------------------------------------------
+
+print("Nombre de fichiers en doublon par type")
+
+df_dbls_image  = df_dbls[df_dbls.doctype_grpd == 'image']
+df_dbls_video  = df_dbls[df_dbls.doctype_grpd == 'video']
+                         
+print("il y a {} fichiers 'image' avec des doublons".format(df_dbls_image.shape[0]))
+print("il y a {} fichiers 'vidéo' avec des doublons".format(df_dbls_video.shape[0]))
+
+plt.bar([0],[df_dbls_image.shape[0]], label="image")
+plt.bar([1],[df_dbls_video.shape[0]], label="vidéo")
+#plt.legend()
+mylabels = ['image', 'vidéo']
+plt.xticks(range(2), mylabels, fontsize=16, rotation=0)
+plt.show()
+
+
+
+#-------------------------------------------------------------------------------
+#4b) Quels sont les types de fichiers avec doublons => nombre de fichiers en doublon par extension
+#-------------------------------------------------------------------------------
+#df_nb_fic_par_extension = df_dbls[['_id','extfile_grpd', 'doctype_grpd']].groupby(['extfile_grpd']).count().reset_index()
+df_nb_fic_par_extension = df_dbls[['_id','extfile_grpd', 'doctype_grpd']].                                    groupby(['extfile_grpd']).agg({"_id":"count","doctype_grpd":"last"}).reset_index()
+df_nb_fic_par_extension.columns=['extfile', 'count', 'type']
+
+print("nombre de fichiers en doublon par extension (par type de fichier, échelle log ou non): ")
+#df_nb_fic_par_extension[['extfile', 'count']]
+
+#Graph
+
+#grid -> draw 2x2 subplots and assign them to axes variables
+fig, axe_array = plt.subplots(2,2, sharex=False, sharey=False, figsize=(15,5)) #with non shared axis
+
+#pour les types 'image'
+df_for_graph = df_nb_fic_par_extension[df_nb_fic_par_extension.type=='image'].sort_values(by=['type','count'], ascending=False)
+sns.barplot(x=df_for_graph['extfile'], y=df_for_graph['count'], color="darkblue", log=False, data = df_for_graph, ax=axe_array[0,0])
+sns.barplot(x=df_for_graph['extfile'], y=df_for_graph['count'], color="darkblue", log=True , data = df_for_graph, ax=axe_array[1,0])
+
+#pour les types 'video'
+df_for_graph = df_nb_fic_par_extension[df_nb_fic_par_extension.type=='video'].sort_values(by=['type','count'], ascending=False)
+sns.barplot(x=df_for_graph['extfile'], y=df_for_graph['count'], color="darkblue", log=False, data = df_for_graph, ax=axe_array[0,1])
+sns.barplot(x=df_for_graph['extfile'], y=df_for_graph['count'], color="darkblue", log=True , data = df_for_graph, ax=axe_array[1,1])
+
+plt.show()
+
+
+# ### Commentaires
+# 
+# On note que les fichiers en doublons sont essentiellement des jpg.
+# 
+# Viennent ensuite 
+# - les png, puis gif, jpeg, svg, bmp, webp et tif pour les images
+# - les mp4 puis 3gp, mov, avi, dat, vob et wmv pour les vidéos.
+# 
+
+# In[424]:
+
+
+df_nb_fic_par_extension.sort_values(by=['type','count'], ascending = False)
+
+
+# In[339]:
+
+
+#OBJECTIF : COMMENT TRAITER LES DOUBLONS ? COMMENT MINIMISER LE TRAITEMENT MANUEL, LE RENDRE LE PLUS RAPIDE POSSIBLE.
+#=====================================================================================================================
+
+
+# EVALUATION DU VOLUME QUE REPRESENTENT LES FICHIERS AVEC DOUBLONS et DU GAIN DE VOLUME SANS DOUBLONS
+#-------------------------------------------------------------------------------
+#5a) taille des doublons : moyenne des sizes de documents par fichier avec doublon
+#-------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------
+#5b) taille des doublons : écart max par fichier avec doublon
+#-------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------
+#5c) taille des doublons : somme totale des documents par fichiers en doublon
+#-------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------
+#5d) taille des doublons : somme totale des documents des fichiers en doublon
+#-------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------
+#5e) taille des doublons : somme totale des documents des fichiers en doublon
+#-------------------------------------------------------------------------------
+
+
+#-------------------------------
+#Conclusion
+#-------------------------------
+
+
+#--------------------------------------------------------------------------------------------
+#----------------------------------------------
+# II - Focus sur les fichiers avec doublon sans size - vérification de l'hypothèse H1
+#--------------------------------------------------------------------------------------------
+#----------------------------------------------
+#les mêmes indicateurs sur :
+df_dbls = df_doublons[df_doublons.flag_size_absente==True]
+
+
+#--------------------------------------------------------------------------------------------
+#----------------------------------------------
+# III - Vérification des hypothèses H2 et H4
+#--------------------------------------------------------------------------------------------
+#----------------------------------------------
+
+
+#OBJECTIF : COMMENT TRAITER LES DOUBLONS ? COMMENT MINIMISER LE TRAITEMENT MANUEL, LE RENDRE LE PLUS RAPIDE POSSIBLE.
+
+
+# In[ ]:
+
+
+
 
 
 # In[24]:
@@ -627,6 +822,13 @@ print("=> voir la nécessité d'inclure la taille dans la recherche de doublons"
 
 
 # # Traitement principal
+
+# In[183]:
+
+
+#REMARQUE : A VOIR !!!!!
+# https://stackoverflow.com/questions/7571635/fastest-way-to-check-if-a-value-exists-in-a-list
+
 
 # In[261]:
 
